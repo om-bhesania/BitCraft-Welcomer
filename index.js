@@ -12,10 +12,13 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import path from "path";
 import fs from "fs";
+import express from "express";
 
 // Load environment variables
 config();
 
+const app = express();
+const PORT = process.env.PORT || 3000;
 // Get directory path for ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -213,7 +216,7 @@ async function welcomeMember(member) {
       .setDescription(
         `${welcomeLine}\n\nHey <@${member.id}>, you are the **${memberCount}th** member!`
       )
-      .setImage("attachment://welcome-image.png")
+      .setImage("attachment://welcome-image.png");
 
     // Send welcome message with embed
     await welcomeChannel.send({
@@ -416,3 +419,10 @@ try {
   console.error("Please check your bot token and try again.");
   process.exit(1);
 }
+
+
+app.get("/", (req, res) => res.send("Bot is running!"));
+
+app.listen(PORT, () => {
+  console.log(`Web server is running on port ${PORT}`);
+});
