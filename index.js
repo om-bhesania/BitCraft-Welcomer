@@ -330,7 +330,7 @@ client.on("messageCreate", async (message) => {
   }
 
   // Set background command
-  if (command === "setbackground") {
+  if (command === "bg") {
     // Check if user has permission
     if (!isAdmin(message.member)) {
       return message.reply(
