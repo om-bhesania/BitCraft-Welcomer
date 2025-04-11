@@ -168,7 +168,7 @@ async function createWelcomeImage(member, memberCount) {
 
     ctx.font = "bold 28px Arial"; // Increased from 22px
     ctx.fillStyle = "#F9A825";
-    ctx.fillText(`${member.user.tag}`, 450, 140);
+    ctx.fillText(`${member.user.displayName}`, 450, 140);
 
     ctx.font = "24px Arial"; // Increased from 18px
     ctx.fillStyle = "#FFFFFF";
