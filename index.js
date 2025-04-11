@@ -208,6 +208,7 @@ async function welcomeMember(member) {
     const attachment = new AttachmentBuilder(welcomeImage, {
       name: "welcome-image.png",
     });
+    await welcomeChannel.send(`Welcome to the server, <@${member.id}>! 🎉`);
 
     // Create embed
     const embed = new EmbedBuilder()
@@ -419,7 +420,6 @@ try {
   console.error("Please check your bot token and try again.");
   process.exit(1);
 }
-
 
 app.get("/", (req, res) => res.send("Bot is running!"));
 
