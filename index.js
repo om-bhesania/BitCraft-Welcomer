@@ -29,8 +29,9 @@ const botConfig = {
   token: process.env.BOT_TOKEN,
   // Channel ID where welcome messages will be sent
   welcomeChannelId: process.env.WELCOME_CHANNEL_ID,
-  // Role ID to assign to new members
-  defaultRoleId: process.env.DEFAULT_ROLE_ID,
+  // Role IDs to assign to new members
+  defaultRoleIds:
+    [process.env.DEFAULT_ROLE_ID, process.env.DEFAULT_ROLE_ID_2] || [],
   // Command prefix for testing
   prefix: "!",
   // Background file path - can be either GIF or image
@@ -38,7 +39,6 @@ const botConfig = {
   backgroundPath:
     process.env.BACKGROUND_PATH || path.join(process.cwd(), "banner.gif"),
 };
-
 // Check if token is available
 if (!botConfig.token) {
   console.error(
@@ -208,7 +208,9 @@ async function welcomeMember(member) {
     const attachment = new AttachmentBuilder(welcomeImage, {
       name: "welcome-image.png",
     });
-    await welcomeChannel.send(`Welcome to the server, <@${member.id}>! 🎉`);
+    const message = await welcomeChannel.send(
+      `Welcome to the server, <@${member.id}>! `
+    );
 
     // Create embed
     const embed = new EmbedBuilder()
@@ -220,31 +222,42 @@ async function welcomeMember(member) {
       .setImage("attachment://welcome-image.png");
 
     // Send welcome message with embed
-    await welcomeChannel.send({
+    const sentMessage = await welcomeChannel.send({
       embeds: [embed],
       files: [attachment],
     });
 
     // Assign role to new member - with error handling and permissions check
     try {
-      const role = member.guild.roles.cache.get(botConfig.defaultRoleId);
-      if (role) {
+      const roles = member.guild.roles.cache.filter((role) =>
+        botConfig.defaultRoleIds.includes(role.id)
+      );
+      if (roles.size > 0) {
         // Check if bot has permission to manage roles
         const botMember = await member.guild.members.fetch(client.user.id);
         if (
           botMember.permissions.has(PermissionsBitField.Flags.ManageRoles) &&
-          botMember.roles.highest.position > role.position
+          botMember.roles.highest.position >
+            roles.reduce((max, role) => Math.max(max, role.position), 0)
         ) {
-          await member.roles.add(role);
-          console.log(`Assigned role ${role.name} to ${member.user.tag}`);
+          await member.roles.add(roles);
+          console.log(
+            `Assigned roles ${roles.map((role) => role.name).join(", ")} to ${
+              member.user.tag
+            }`
+          );
         } else {
           console.log(
-            `Bot doesn't have permissions to assign the role ${role.name}. Check bot role hierarchy.`
+            `Bot doesn't have permissions to assign the roles ${roles
+              .map((role) => role.name)
+              .join(", ")}. Check bot role hierarchy.`
           );
         }
       } else {
         console.error(
-          `Default role with ID ${botConfig.defaultRoleId} not found.`
+          `Default role(s) with ID(s) ${botConfig.defaultRoleIds.join(
+            ","
+          )} not found.`
         );
       }
     } catch (roleError) {
@@ -287,6 +300,8 @@ client.on("guildMemberAdd", async (member) => {
 });
 
 // Command handler for messages
+// Test command to simulate a member joining
+// This is part of your existing code
 client.on("messageCreate", async (message) => {
   // Ignore messages from bots
   if (message.author.bot) return;
@@ -310,7 +325,7 @@ client.on("messageCreate", async (message) => {
   };
 
   // Test command to simulate a member joining
-  if (command === "test") {
+  if (command === "t" || command === "test") {
     // Check if user has permission to use this command
     if (!isAdmin(message.member)) {
       return message.reply(
@@ -321,15 +336,43 @@ client.on("messageCreate", async (message) => {
     // Send typing indicator
     message.channel.sendTyping();
 
-    // Send quick acknowledgment
-    const ack = await message.reply("🚀 Testing welcome message...");
+    // Delete the trigger message
+    await message.delete().catch(console.error);
 
     // Use the message author as the test member
     await welcomeMember(message.member);
 
-    console.log(`Test welcome triggered by ${message.author.tag}`);
+    // Set a short timeout to ensure messages are processed
+    setTimeout(async () => {
+      try {
+        // Get the most recent messages in the channel
+        const messages = await message.channel.messages.fetch({ limit: 10 });
+
+        // Filter and delete welcome-related messages
+        const messagesToDelete = messages.filter(
+          (msg) =>
+            msg.author.id === client.user.id &&
+            (msg.content.includes(`Welcome to the server`) ||
+              msg.embeds.length > 0)
+        );
+
+        if (messagesToDelete.size > 0) {
+          await message.channel
+            .bulkDelete(messagesToDelete)
+            .catch(console.error);
+        }
+      } catch (error) {
+        console.error("Error cleaning up test welcome messages:", error);
+      }
+    }, 60000);
+
+    console.log(
+      `Test welcome triggered and cleaned up by ${message.author.tag}`
+    );
   }
 
+  // The rest of your command handlers continue here
+  // Set background command
   // Set background command
   if (command === "bg") {
     // Check if user has permission
@@ -426,3 +469,4 @@ app.get("/", (req, res) => res.send("Bot is running!"));
 app.listen(PORT, () => {
   console.log(`Web server is running on port ${PORT}`);
 });
+
