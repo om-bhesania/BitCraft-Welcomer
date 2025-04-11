@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: bitcraft-welcomer-bot
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: 1359522870983655732
+        sync: false
+      - key: 1360199698274713620
+        sync: false
