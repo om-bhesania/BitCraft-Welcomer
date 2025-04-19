@@ -522,7 +522,28 @@ const commands = {
       }
     },
   },
+  // Stop reminders command
+  stop: {
+    aliases: ["stopreminder", "stoprm"],
+    adminOnly: true,
+    execute: async (message, args) => {
+      // Check if there are active reminders
+      if (!reminderIntervals || reminderIntervals.length === 0) {
+        return message.reply("⚠️ There are no active reminders to stop.");
+      }
 
+      // Clear all active intervals
+      reminderIntervals.forEach((interval) => clearInterval(interval));
+      reminderTimeouts.forEach((timeout) => clearTimeout(timeout));
+
+      // Reset the arrays
+      reminderIntervals = [];
+      reminderTimeouts = [];
+
+      await message.reply("✅ All reminders have been stopped!");
+      console.log(`Reminders stopped by ${message.author.tag}`);
+    },
+  },
   // IP command
   ip: {
     aliases: ["server", "connect"],
@@ -589,7 +610,7 @@ const commands = {
           {
             name: "🔹 Use the Correct Channels – Post appropriately (e.g., don't drop memes in ⁠🚨・support).",
             value: "Use the correct channels to avoid spamming.",
-          },
+          }
         );
 
       // Chat Rules Embed
@@ -614,7 +635,8 @@ const commands = {
           },
           {
             name: "🎖️ Respect Staff – Staff are here to help! Contact them respectfully via ⁠😤・complains.",
-            value: "Be respectful to staff and contact them via the correct channels.",
+            value:
+              "Be respectful to staff and contact them via the correct channels.",
           },
           {
             name: "🧠 No Heated Topics – Avoid politics, religion, or controversial subjects unless staff allows.",
@@ -639,16 +661,14 @@ const commands = {
           {
             name: "🤬 Swearing is Okay – But don't go overboard or direct it at anyone.",
             value: "Swearing is okay, but don't go overboard.",
-          },
+          }
         );
 
       // Media Sharing Rules Embed
       const mediaRulesEmbed = new EmbedBuilder()
         .setColor("#F9A825")
         .setTitle("📷・Media Sharing Rules")
-        .setDescription(
-          "Follow these rules when sharing media:"
-        )
+        .setDescription("Follow these rules when sharing media:")
         .addFields(
           {
             name: "📸 Post Relevant Content Only – No off-topic images or random spam.",
@@ -669,7 +689,7 @@ const commands = {
           {
             name: "📤 Don't Flood Channels – Avoid posting tons of images all at once.",
             value: "Don't flood channels.",
-          },
+          }
         );
 
       await message.reply({
