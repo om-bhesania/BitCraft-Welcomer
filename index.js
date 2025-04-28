@@ -575,7 +575,7 @@ stop: {
           },
           {
             name: "🌐 Server Address (BEDROCK)",
-            value: "```play.bitcraftnetwork.fun:25571```",
+            value: "```play.bitcraftnetwork.fun:25582```",
           }
         )
         .setFooter({
