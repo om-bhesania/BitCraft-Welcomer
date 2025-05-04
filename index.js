@@ -73,7 +73,7 @@ client.once("ready", async () => {
 
 // Event handler for new guild members
 client.on("guildMemberAdd", async (member) => {
-  await welcomeMember(member, client);
+  await welcomeMember(member);
 });
 
 // Message handler with improved command system
