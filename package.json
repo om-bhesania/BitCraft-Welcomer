@@ -8,10 +8,18 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "@discordjs/opus": "^0.10.0",
+    "@discordjs/voice": "^0.18.0",
     "canvas": "^2.11.0",
+    "child_process": "^1.0.2",
     "discord.js": "^14.11.0",
     "dotenv": "^16.5.0",
-    "express": "^5.1.0"
+    "express": "^5.1.0",
+    "ffmpeg-static": "^5.2.0",
+    "fs-extra": "^11.3.0",
+    "lavaplayer": "^0.0.1",
+    "opusscript": "^0.0.8",
+    "play-dl": "^1.9.7"
   },
   "keywords": [],
   "author": "",
