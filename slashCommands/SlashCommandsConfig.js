@@ -1,12 +1,9 @@
 // BitCraft Official Bot - Slash Commands Module
 import { REST, Routes } from "discord.js";
-import { musicSlashCommand } from "../commands/music/music.js";
 import { botConfig } from "../config/config.js";
- 
 
 // Register all slash commands here
 const slashCommands = [
-  musicSlashCommand,
   {
     name: "help",
     description: "Shows the bot help message",
@@ -19,18 +16,6 @@ const slashCommands = [
     name: "rules",
     description: "Shows the server rules",
   },
-  // {
-  //   name: "skip",
-  //   description: "Skip the current song",
-  // },
-  // {
-  //   name: "queue",
-  //   description: "View the current music queue",
-  // },
-  // {
-  //   name: "stop",
-  //   description: "Stop the music and disconnect the bot",
-  // },
 ];
 
 // Function to register slash commands
@@ -63,54 +48,6 @@ export function setupInteractionHandler(client) {
 
     // Get the command name
     const { commandName } = interaction;
-
-    // // Handle music command
-    // if (commandName === "p") {
-    //   await musicSlashCommand.execute(interaction);
-    //   return;
-    // }
-
-    // // Handle skip command
-    // if (commandName === "skip") {
-    //   const { skipConfig } = await import("./music.js");
-    //   await skipConfig.execute(
-    //     {
-    //       member: interaction.member,
-    //       guild: interaction.guild,
-    //       reply: async (content) => interaction.reply(content),
-    //     },
-    //     []
-    //   );
-    //   return;
-    // }
-
-    // // Handle queue command
-    // if (commandName === "queue") {
-    //   const { queueConfig } = await import("./music.js");
-    //   await queueConfig.execute(
-    //     {
-    //       member: interaction.member,
-    //       guild: interaction.guild,
-    //       reply: async (content) => interaction.reply(content),
-    //     },
-    //     []
-    //   );
-    //   return;
-    // }
-
-    // // Handle stop command
-    // if (commandName === "stop") {
-    //   const { stopConfig } = await import("../commands/music/music.js");
-    //   await stopConfig.execute(
-    //     {
-    //       member: interaction.member,
-    //       guild: interaction.guild,
-    //       reply: async (content) => interaction.reply(content),
-    //     },
-    //     []
-    //   );
-    //   return;
-    // }
 
     // Handle help command
     if (commandName === "help") {

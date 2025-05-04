@@ -2,16 +2,16 @@
 import { Client, EmbedBuilder, GatewayIntentBits } from "discord.js";
 import { config } from "dotenv";
 import express from "express";
+import fs from "fs";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { commands } from "./commands/commandsConfig.js";
 import { botConfig } from "./config/config.js";
-import fs from "fs";
-import { getBackgroundInfo, isAdmin, welcomeMember } from "./utils/utils.js";
 import {
   registerSlashCommands,
   setupInteractionHandler,
 } from "./slashCommands/SlashCommandsConfig.js";
+import { getBackgroundInfo, isAdmin, welcomeMember } from "./utils/utils.js";
 
 // Load environment variables
 config();
