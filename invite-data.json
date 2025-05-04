@@ -1,7 +1,7 @@
 {
   "1359522869268320507": {
     "710833692490203156": {
-      "inviteCount": 1,
+      "inviteCount": 2,
       "invitedUsers": [
         {
           "userId": "426712193992753162",
@@ -9,6 +9,13 @@
           "inviteCode": "EkMuCa2X",
           "timestamp": "2025-05-04T10:42:06.740Z",
           "timestampIST": "4 May 2025 at 04:12:06 pm IST"
+        },
+        {
+          "userId": "426712193992753162",
+          "username": "ombhesania9835",
+          "inviteCode": "EkMuCa2X",
+          "timestamp": "2025-05-04T11:58:59.646Z",
+          "timestampIST": "4 May 2025 at 05:28:59 pm IST"
         }
       ]
     }
