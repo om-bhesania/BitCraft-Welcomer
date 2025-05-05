@@ -58,7 +58,7 @@ client.once("ready", async () => {
     console.warn("Background file not found, will use default pattern.");
   }
   // Register slash commands
-  await registerSlashCommands(client);
+  // await registerSlashCommands(client);
 
   // Setup interaction handler for slash commands
   setupInteractionHandler(client);
@@ -117,7 +117,14 @@ client.on("messageCreate", async (message) => {
 
   // Execute the command
   try {
-    await command.execute(message, args);
+    if (typeof command.execute === "function") {
+      await command.execute(message, args);
+    } else {
+      console.error(
+        `Error executing command ${commandName}: command.execute is not a function`
+      );
+      message.reply("There was an error executing that command.");
+    }
   } catch (error) {
     console.error(`Error executing command ${commandName}:`, error);
     message.reply("There was an error executing that command.");
@@ -200,7 +207,7 @@ client.on("ready", async () => {
       const guildInvites = await guild.invites.fetch();
       invitesCache.set(
         guild.id,
-        new Map(guildInvites.map((invite) => [invite.code, { uses: invite.uses, inviter: invite.inviter.id }]))
+        new Map(guildInvites.map((invite) => [invite.code, { uses: invite.uses, inviter: invite.inviter?.id }]))
       );
       console.log(
         `Cached ${guildInvites.size} invites for guild ${guild.name}`
@@ -521,14 +528,14 @@ client.on("messageCreate", async (message) => {
         try {
           // Skip the "unknown" inviter entry in the leaderboard
           if (inviterId === "unknown") continue;
-          
+
           const inviter = await client.users.fetch(inviterId);
           const inviterData = guildData[inviterId];
           description += `**${inviter.username}**: ${inviterData.inviteCount} invite(s)\n`;
           count++;
         } catch (err) {
           console.error(`Could not fetch user ${inviterId}:`, err);
-          
+
           // Skip the "unknown" inviter entry in the leaderboard
           if (inviterId !== "unknown") {
             description += `**Unknown User**: ${guildData[inviterId].inviteCount} invite(s)\n`;
@@ -630,40 +637,43 @@ client.on("messageCreate", async (message) => {
 
       // Show all invites including who invited whom
       const allInviteData = [];
-      
+
       for (const inviterId in guildData) {
         // Skip the "unknown" invites
         if (inviterId === "unknown") continue;
-        
+
         const inviterData = guildData[inviterId];
-        
-        if (!inviterData.invitedUsers || inviterData.invitedUsers.length === 0) continue;
-        
+
+        if (!inviterData.invitedUsers || inviterData.invitedUsers.length === 0)
+          continue;
+
         for (const invite of inviterData.invitedUsers) {
           allInviteData.push({
             inviterId,
             inviteCode: invite.inviteCode,
             invitedUser: invite.username,
-            timestamp: invite.timestampIST
+            timestamp: invite.timestampIST,
           });
         }
       }
-      
+
       if (allInviteData.length === 0) {
         return message.reply("No invite data has been recorded yet.");
       }
-      
+
       // Sort by most recent first
-      allInviteData.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-      
+      allInviteData.sort(
+        (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+      );
+
       // Create pages with 10 invites per page
       const itemsPerPage = 10;
       const pages = [];
-      
+
       for (let i = 0; i < allInviteData.length; i += itemsPerPage) {
         const pageItems = allInviteData.slice(i, i + itemsPerPage);
         let pageContent = "";
-        
+
         for (const item of pageItems) {
           try {
             const inviter = await client.users.fetch(item.inviterId);
@@ -672,19 +682,19 @@ client.on("messageCreate", async (message) => {
             pageContent += `• **Unknown User** invited **${item.invitedUser}** (${item.timestamp}) with code: ${item.inviteCode}\n`;
           }
         }
-        
+
         pages.push(pageContent);
       }
-      
+
       // Send the first page
       const allInvitesEmbed = new EmbedBuilder()
         .setColor("#16A085")
         .setTitle("All Server Invites")
         .setDescription(pages[0] || "No invite data available.")
-        .setFooter({ 
-          text: `Page 1/${pages.length} • Total: ${allInviteData.length} invites` 
+        .setFooter({
+          text: `Page 1/${pages.length} • Total: ${allInviteData.length} invites`,
         });
-        
+
       message.reply({ embeds: [allInvitesEmbed] });
       break;
 

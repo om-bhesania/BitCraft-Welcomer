@@ -1,14 +1,15 @@
 // BitCraft Official Bot - ES Modules version with enhanced command system
 import { createCanvas, loadImage } from "canvas";
 import {
-    AttachmentBuilder,
-    EmbedBuilder,
-    PermissionsBitField
+  AttachmentBuilder,
+  Client,
+  EmbedBuilder,
+  GatewayIntentBits,
+  PermissionsBitField,
 } from "discord.js";
 import fs from "fs";
 import path from "path";
 import { botConfig } from "../config/config.js";
-
 
 // Function to create welcome card
 export async function createWelcomeImage(member, memberCount) {
@@ -185,7 +186,9 @@ async function welcomeMember(member) {
       );
       if (roles.size > 0) {
         // Check if bot has permission to manage roles
-        const botMember = await member.guild.members.fetch(client.user.id);
+        const botMember = await member.guild.members.fetch(
+          member.client.user.id
+        );
         if (
           botMember.permissions.has(PermissionsBitField.Flags.ManageRoles) &&
           botMember.roles.highest.position >
@@ -225,3 +228,8 @@ export const isAdmin = (member) => {
     member.permissions.has(PermissionsBitField.Flags.ManageGuild)
   );
 };
+
+const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+client.on("guildMemberAdd", async (member) => {
+  await welcomeMember(member);
+});

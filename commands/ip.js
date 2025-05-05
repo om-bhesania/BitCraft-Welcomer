@@ -1,3 +1,5 @@
+import { EmbedBuilder } from "discord.js";
+
 export const ipConfig = {
   aliases: ["server", "connect"],
   adminOnly: false,
