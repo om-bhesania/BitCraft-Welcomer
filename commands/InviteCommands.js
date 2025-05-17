@@ -317,7 +317,7 @@ export const allInvitesConfig = {
 
 // Enhanced command to create log channel for invites
 export const createLogChannelConfig = {
-  aliases: ["setupinvitelogs", "createinvitelog","cti"],
+  aliases: ["setupinvitelogs", "createinvitelog", "cti"],
   adminOnly: true,
   execute: async (message, args) => {
     // Check if user has admin permission
@@ -370,14 +370,12 @@ export const createLogChannelConfig = {
         .setDescription(
           "This channel has been set up to log all invite-related activities."
         )
-        .addFields(
-          {
-            name: "Features",
-            value:
-              "• Records who invited each new member\n• Tracks which invite codes are used\n• Keeps detailed timestamps of joins\n• Maintains invitation history",
-            inline: false,
-          },
-        )
+        .addFields({
+          name: "Features",
+          value:
+            "• Records who invited each new member\n• Tracks which invite codes are used\n• Keeps detailed timestamps of joins\n• Maintains invitation history",
+          inline: false,
+        })
         .setFooter({
           text: "All new member joins will now be logged automatically in this channel",
         })
@@ -509,6 +507,224 @@ export const inviteHelpConfig = {
   },
 };
 
+// Comman to test the invite tracker embed
+export const testInviteConfig = {
+  aliases: ["testinvite", "testembed"],
+  adminOnly: true,
+  execute: async (message, args) => {
+    // Check if user has admin permission
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+      return message.reply("You do not have permission to use this command.");
+    }
+
+    // Parse arguments
+    const type = args[0]?.toLowerCase() || "regular";
+
+    // Only accept valid types
+    if (!["regular", "vanity", "unknown"].includes(type)) {
+      return message.reply(
+        "Invalid invite type. Use `regular`, `vanity`, or `unknown`."
+      );
+    }
+
+    // The inviter is the first mentioned user or the command issuer
+    const inviter = message.mentions.users.first() || message.author;
+
+    // Handle user ID or name for simulated member
+    let simulatedMember = null;
+    let simulatedMemberName = null;
+    let simulatedMemberId = null;
+    let simulatedMemberAvatar = null;
+
+    // Check if we have a third argument (after type and possibly a mentioned inviter)
+    // This would be the player name or ID to simulate
+    if (args.length > 1 && !args[1].startsWith("<@")) {
+      // Try to see if it's a valid user ID
+      const potentialId = args[1].replace(/[<@!>]/g, "");
+      try {
+        const fetchedUser = await message.client.users
+          .fetch(potentialId)
+          .catch(() => null);
+        if (fetchedUser) {
+          // It's a valid user ID
+          simulatedMember = fetchedUser;
+          simulatedMemberName = fetchedUser.username;
+          simulatedMemberId = fetchedUser.id;
+          simulatedMemberAvatar = fetchedUser.displayAvatarURL({
+            dynamic: true,
+          });
+        } else {
+          // It's probably just a name
+          simulatedMemberName = args.slice(1).join(" ");
+          simulatedMemberId = Math.floor(
+            Math.random() * 1000000000000000000
+          ).toString();
+          // Use a default avatar for text names
+          simulatedMemberAvatar = `https://cdn.discordapp.com/embed/avatars/${Math.floor(
+            Math.random() * 5
+          )}.png`;
+        }
+      } catch (err) {
+        // It's probably just a name
+        simulatedMemberName = args.slice(1).join(" ");
+        simulatedMemberId = Math.floor(
+          Math.random() * 1000000000000000000
+        ).toString();
+        // Use a default avatar for text names
+        simulatedMemberAvatar = `https://cdn.discordapp.com/embed/avatars/${Math.floor(
+          Math.random() * 5
+        )}.png`;
+      }
+    } else {
+      // Default to the message author as the simulated member
+      simulatedMember = message.author;
+      simulatedMemberName = message.author.username;
+      simulatedMemberId = message.author.id;
+      simulatedMemberAvatar = message.author.displayAvatarURL({
+        dynamic: true,
+      });
+    }
+
+    // Generate fake timestamp for testing
+    const timestamp = new Date();
+    const timestampIST = new Intl.DateTimeFormat("en-IN", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: true,
+    }).format(timestamp);
+
+    // Create the simulated member mention string
+    const memberMention = simulatedMember
+      ? `<@${simulatedMemberId}>`
+      : simulatedMemberName;
+
+    // Create appropriate embed based on invite type
+    let inviteEmbed;
+
+    if (type === "vanity") {
+      inviteEmbed = new EmbedBuilder()
+        .setColor("#3498DB")
+        .setTitle("New Member Joined")
+        .setThumbnail(simulatedMemberAvatar)
+        .setDescription(`${memberMention} joined the server`)
+        .addFields(
+          {
+            name: "Invite Info",
+            value: "Joined using the server's vanity URL",
+            inline: false,
+          },
+          {
+            name: "Date & Time",
+            value: timestampIST,
+            inline: false,
+          }
+        )
+        .setTimestamp()
+        .setFooter({
+          text: `Member ID: ${simulatedMemberId}`,
+        });
+    } else if (type === "unknown") {
+      inviteEmbed = new EmbedBuilder()
+        .setColor("#E74C3C")
+        .setTitle("New Member Joined")
+        .setThumbnail(simulatedMemberAvatar)
+        .setDescription(`${memberMention} joined the server`)
+        .addFields(
+          {
+            name: "Invite Info",
+            value: "Could not determine which invite was used",
+            inline: false,
+          },
+          {
+            name: "Date & Time",
+            value: timestampIST,
+            inline: false,
+          }
+        )
+        .setTimestamp()
+        .setFooter({
+          text: `Member ID: ${simulatedMemberId}`,
+        });
+    } else {
+      // Generate test data for regular invite
+      const inviteCode = `test-${Math.random().toString(36).substring(2, 8)}`;
+      const simulatedInviteCount = Math.floor(Math.random() * 20) + 1;
+
+      inviteEmbed = new EmbedBuilder()
+        .setColor("#2ECC71")
+        .setTitle("New Member Joined")
+        .setThumbnail(simulatedMemberAvatar)
+        .setDescription(`${memberMention} was invited by ${inviter.username}`)
+        .addFields(
+          {
+            name: "Member",
+            value: `${simulatedMemberName} \n (<@${simulatedMemberId}>)`,
+            inline: true,
+          },
+          {
+            name: "Invited By",
+            value: `${inviter.username} \n (<@${inviter.id}>)`,
+            inline: true,
+          },
+          {
+            name: "Invite Code",
+            value: inviteCode,
+            inline: true,
+          },
+          {
+            name: "Joined At",
+            value: timestampIST,
+            inline: true,
+          },
+          {
+            name: "Total Invites",
+            value: `${simulatedInviteCount}`,
+            inline: true,
+          }
+        )
+        .setTimestamp()
+
+        .setFooter({
+          text: `Inviter ID: ${inviter.displayName}`,
+          iconURL: inviter.displayAvatarURL({ dynamic: true }),
+        });
+    }
+
+    try {
+      // Send test embed with notice that it's just for testing
+      const sentMessage = await message.channel.send({
+        content: `**TEST EMBED ONLY** - Simulating invite for ${simulatedMemberName}. This message will be deleted in 60 seconds.`,
+        embeds: [inviteEmbed],
+      });
+
+      // Delete original command
+      try {
+        await message.delete();
+      } catch (err) {
+        console.error("Could not delete command message:", err);
+      }
+
+      // Delete test embed after 60 seconds
+      setTimeout(async () => {
+        try {
+          if (sentMessage && !sentMessage.deleted) {
+            await sentMessage.delete();
+          }
+        } catch (error) {
+          console.error("Error deleting test embed:", error);
+        }
+      }, 60000);
+    } catch (error) {
+      console.error("Error generating test embed:", error);
+    }
+  },
+};
+
 // Initialize invite tracking system
 export async function setupInviteTracker(client) {
   // When bot is ready, cache all guild invites
@@ -559,26 +775,18 @@ export async function setupInviteTracker(client) {
   // Track invites when new members join
   client.on(Events.GuildMemberAdd, async (member) => {
     try {
-      // Skip bots
       if (member.user.bot) return;
 
-      // Get the invite data
       const inviteData = loadInviteData();
       if (!inviteData[member.guild.id]) {
         inviteData[member.guild.id] = {};
       }
-      const guildData = inviteData[member.guild.id];
 
-      // Get the cached invites
       const cachedInvites =
         guildInvites.get(member.guild.id) || new Collection();
-
-      // Get the current invites
       const currentInvites = await member.guild.invites.fetch();
 
-      // Find the invite that was used
       let usedInvite = null;
-      // Compare the current invites with the cached ones to find which one was used
       for (const [code, invite] of currentInvites) {
         const cachedInvite = cachedInvites.get(code);
         if (cachedInvite && invite.uses > cachedInvite.uses) {
@@ -587,169 +795,112 @@ export async function setupInviteTracker(client) {
         }
       }
 
-      // Update the cache with the new invites
       guildInvites.set(
         member.guild.id,
         new Collection(currentInvites.map((invite) => [invite.code, invite]))
       );
 
-      // Create invite log data
-      let inviterId = "unknown";
-      let inviterUsername = "Unknown";
-      let inviteCode = "unknown";
-
-      if (usedInvite && usedInvite.inviter) {
-        inviterId = usedInvite.inviter.id;
-        inviterUsername = usedInvite.inviter.username;
-        inviteCode = usedInvite.code;
-      } else if (member.guild.vanityURLCode) {
-        // Check if they used a vanity URL
-        try {
-          const vanityData = await member.guild.fetchVanityData();
-          if (vanityData) {
-            inviteCode = "vanity";
-            inviterUsername = "Vanity URL";
-          }
-        } catch (err) {
-          console.error("Error checking vanity URL:", err);
-        }
-      }
-
-      // Initialize inviter data if not exists
-      if (!guildData[inviterId]) {
-        guildData[inviterId] = {
-          inviteCount: 0,
-          invitedUsers: [],
-        };
-      }
-
-      // Update inviter data
-      guildData[inviterId].inviteCount += 1;
-
-      // Record the invited user
       const timestamp = new Date();
-      const timestampIST = convertToIST(timestamp);
+      const timestampIST = new Intl.DateTimeFormat("en-IN", {
+        timeZone: "Asia/Kolkata",
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "numeric",
+        second: "numeric",
+        hour12: true,
+      }).format(timestamp);
 
-      guildData[inviterId].invitedUsers.push({
-        id: member.id,
-        username: member.user.username,
-        inviteCode: inviteCode,
-        timestamp: timestamp.toISOString(),
-        timestampIST: timestampIST,
+      const simulatedMemberName = member.user.username;
+      const simulatedMemberId = member.user.id;
+      const simulatedMemberAvatar = member.user.displayAvatarURL({
+        dynamic: true,
       });
+      const memberMention = `<@${simulatedMemberId}>`;
 
-      // Save the updated invite data
-      saveInviteData(inviteData);
-
-      // Find the invite-logs channel
-      const logChannel =
-        member.guild.channels.cache.find(
-          (ch) => ch.id === "1373272863355965472"
-        ) || member.guild.channels.cache.get(process.env.LOG_CHANNEL_ID);
-
-      if (!logChannel) return;
-
-      // Create and send embed to log channel based on invite type
       let inviteEmbed;
 
-      if (inviteCode === "vanity") {
+      if (!usedInvite && member.guild.vanityURLCode) {
         // Vanity URL embed
         inviteEmbed = new EmbedBuilder()
           .setColor("#3498DB")
           .setTitle("New Member Joined")
-          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-          .setDescription(`${member.user} joined the server`)
+          .setThumbnail(simulatedMemberAvatar)
+          .setDescription(`${memberMention} joined the server`)
           .addFields(
             {
               name: "Invite Info",
               value: "Joined using the server's vanity URL",
               inline: false,
             },
-            {
-              name: "Date & Time",
-              value: timestampIST,
-              inline: false,
-            }
+            { name: "Date & Time", value: timestampIST, inline: false }
           )
           .setTimestamp()
-          .setFooter({
-            text: `Member ID: ${member.id}`,
-          });
-      } else if (inviteCode === "unknown") {
+          .setFooter({ text: `Member ID: ${simulatedMemberId}` });
+      } else if (!usedInvite) {
         // Unknown invite embed
         inviteEmbed = new EmbedBuilder()
           .setColor("#E74C3C")
           .setTitle("New Member Joined")
-          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-          .setDescription(`${member.user} joined the server`)
+          .setThumbnail(simulatedMemberAvatar)
+          .setDescription(`${memberMention} joined the server`)
           .addFields(
             {
               name: "Invite Info",
               value: "Could not determine which invite was used",
               inline: false,
             },
-            {
-              name: "Date & Time",
-              value: timestampIST,
-              inline: false,
-            }
+            { name: "Date & Time", value: timestampIST, inline: false }
           )
           .setTimestamp()
-          .setFooter({
-            text: `Member ID: ${member.id}`,
-          });
+          .setFooter({ text: `Member ID: ${simulatedMemberId}` });
       } else {
-        // Normal invite embed with full details and both avatars
+        // Regular invite embed
+        const inviter = usedInvite.inviter;
+        const simulatedInviteCount = usedInvite.uses;
+
         inviteEmbed = new EmbedBuilder()
           .setColor("#2ECC71")
           .setTitle("New Member Joined")
-          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-          .setDescription(`${member.user} was invited by ${inviterUsername}`)
+          .setThumbnail(simulatedMemberAvatar)
+          .setDescription(`${memberMention} was invited by ${inviter.username}`)
           .addFields(
             {
               name: "Member",
-              value: `${member.user.username} (<@${member.id}>)`,
+              value: `${simulatedMemberName} \n (<@${simulatedMemberId}>)`,
               inline: true,
             },
             {
               name: "Invited By",
-              value: `${inviterUsername} (<@${inviterId}>)`,
+              value: `${inviter.username} \n (<@${inviter.id}>)`,
               inline: true,
             },
-            {
-              name: "Invite Code",
-              value: inviteCode,
-              inline: true,
-            },
-            {
-              name: "Joined At",
-              value: timestampIST,
-              inline: true,
-            },
+            { name: "Invite Code", value: usedInvite.code, inline: true },
+            { name: "Joined At", value: timestampIST, inline: true },
             {
               name: "Total Invites",
-              value: `${guildData[inviterId].inviteCount}`,
+              value: `${simulatedInviteCount}`,
               inline: true,
             }
           )
           .setTimestamp()
-          .setImage(
-            client.users.cache
-              .get(inviterId)
-              ?.displayAvatarURL({ dynamic: true })
-          )
           .setFooter({
-            text: `Inviter ID: ${inviterId}`,
-            iconURL: client.users.cache
-              .get(inviterId)
-              ?.displayAvatarURL({ dynamic: true }),
+            text: `Inviter ID: ${inviter.username}`,
+            iconURL: inviter.displayAvatarURL({ dynamic: true }),
           });
       }
 
-      // Send the embed to the log channel
-      await logChannel.send({ embeds: [inviteEmbed] });
+      // Send the embed to a specific channel or log channel
+      const logChannel = member.guild.channels.cache.find(
+        (ch) => ch.name === "invite-logs" || ch.name === "logs"
+      );
+      if (logChannel && logChannel.isTextBased()) {
+        await logChannel.send({ embeds: [inviteEmbed] });
+      }
     } catch (err) {
-      console.error("Error handling member join event:", err);
+      console.error("Error handling new member join:", err);
     }
   });
+  
 }

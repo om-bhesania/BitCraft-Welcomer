@@ -6,6 +6,7 @@ import {
   inviteHelpConfig,
   invitesConfig,
   inviteStatsConfig,
+  testInviteConfig,
   userInvitesConfig,
 } from "./InviteCommands.js";
 import { ipConfig } from "./ip.js";
@@ -28,4 +29,5 @@ export const commands = {
   allinvites: allInvitesConfig,
   createlogchannel: createLogChannelConfig,
   invitehelp: inviteHelpConfig,
+  testInvite: testInviteConfig,
 };
