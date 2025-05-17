@@ -1,4 +1,9 @@
-import { EmbedBuilder, PermissionFlagsBits } from "discord.js";
+import {
+  EmbedBuilder,
+  Events,
+  PermissionFlagsBits,
+  Collection,
+} from "discord.js";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -9,6 +14,9 @@ const __dirname = path.dirname(__filename);
 
 // Path for storing invite data
 const INVITE_DATA_PATH = path.join(__dirname, "..", "invite-data.json");
+
+// Global collection to track guild invites
+const guildInvites = new Map();
 
 // Utility to load invite data from file
 function loadInviteData() {
@@ -306,10 +314,10 @@ export const allInvitesConfig = {
     message.reply({ embeds: [allInvitesEmbed] });
   },
 };
- 
-// Command to create log channel for invites
+
+// Enhanced command to create log channel for invites
 export const createLogChannelConfig = {
-  aliases: ["setupinvitelogs", "createinvitelog"],
+  aliases: ["setupinvitelogs", "createinvitelog","cti"],
   adminOnly: true,
   execute: async (message, args) => {
     // Check if user has admin permission
@@ -318,17 +326,20 @@ export const createLogChannelConfig = {
     }
 
     const channelName = "invite-logs";
+    const channelId = "1373272863355965472";
 
     // Check if a channel with this name already exists
     const existingChannel = message.guild.channels.cache.find(
-      (ch) => ch.name === channelName
+      (ch) => ch.id === channelId
     );
 
     if (existingChannel) {
-      return message.reply(`Log channel <#${existingChannel.id}> already exists.`);
+      return message.reply(
+        `Log channel <#${existingChannel.id}> already exists.`
+      );
     }
 
-    // Create the log channel
+    // Create the log channel with proper permissions
     try {
       const newChannel = await message.guild.channels.create({
         name: channelName,
@@ -337,23 +348,115 @@ export const createLogChannelConfig = {
           {
             id: message.guild.id, // @everyone
             deny: [PermissionFlagsBits.SendMessages], // Prevent general users from sending messages
+            allow: [PermissionFlagsBits.ViewChannel], // Allow everyone to view the channel
           },
           {
-            id: message.client.user.id,
-            allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel],
+            id: message.client.user.id, // Bot user
+            allow: [
+              PermissionFlagsBits.SendMessages,
+              PermissionFlagsBits.EmbedLinks,
+              PermissionFlagsBits.AttachFiles,
+              PermissionFlagsBits.ViewChannel,
+            ],
           },
         ],
         reason: "Created invite log channel by admin command.",
       });
 
-      message.reply(`✅ Successfully created invite log channel: <#${newChannel.id}>`);
+      // Add creation notification embed to the new channel
+      const setupEmbed = new EmbedBuilder()
+        .setColor("#2ECC71")
+        .setTitle("Invite Logging System Activated")
+        .setDescription(
+          "This channel has been set up to log all invite-related activities."
+        )
+        .addFields(
+          {
+            name: "Features",
+            value:
+              "• Records who invited each new member\n• Tracks which invite codes are used\n• Keeps detailed timestamps of joins\n• Maintains invitation history",
+            inline: false,
+          },
+        )
+        .setFooter({
+          text: "All new member joins will now be logged automatically in this channel",
+        })
+        .setTimestamp();
+
+      await newChannel.send({ embeds: [setupEmbed] });
+
+      // Load existing invite data from the file to show history
+      const inviteData = loadInviteData();
+      const guildData = inviteData[message.guild.id] || {};
+
+      // Show recent invite history if available
+      const allInviteData = [];
+      for (const inviterId in guildData) {
+        if (inviterId === "unknown") continue;
+
+        const inviterData = guildData[inviterId];
+        if (!inviterData.invitedUsers || inviterData.invitedUsers.length === 0)
+          continue;
+
+        for (const invite of inviterData.invitedUsers) {
+          allInviteData.push({
+            inviterId,
+            inviteCode: invite.inviteCode,
+            invitedUser: invite.username,
+            timestamp: invite.timestampIST,
+          });
+        }
+      }
+
+      // // If we have past invite data, show the most recent ones
+      // if (allInviteData.length > 0) {
+      //   // Sort by most recent first
+      //   allInviteData.sort(
+      //     (a, b) => new Date(b.timestamp) - new Date(a.timestamp)
+      //   );
+
+      //   // Get the 10 most recent invites
+      //   const recentInvites = allInviteData.slice(0, 10);
+      //   let recentInvitesContent = "";
+
+      //   for (const item of recentInvites) {
+      //     try {
+      //       const inviter = await message.client.users.fetch(item.inviterId);
+      //       recentInvitesContent += `• **${inviter.username}** invited **${item.invitedUser}** (${item.timestamp}) with code: ${item.inviteCode}\n`;
+      //     } catch (err) {
+      //       recentInvitesContent += `• **Unknown User** invited **${item.invitedUser}** (${item.timestamp}) with code: ${item.inviteCode}\n`;
+      //     }
+      //   }
+
+      //   if (recentInvitesContent) {
+      //     const historyEmbed = new EmbedBuilder()
+      //       .setColor("#3498DB")
+      //       .setTitle("Recent Invite History")
+      //       .setDescription(recentInvitesContent)
+      //       .setFooter({
+      //         text: `Showing ${Math.min(
+      //           10,
+      //           allInviteData.length
+      //         )} most recent invites out of ${allInviteData.length} total`,
+      //       });
+
+      //     await newChannel.send({ embeds: [historyEmbed] });
+      //   }
+      // }
+
+      message.reply(
+        `✅ Successfully created invite log channel: <#${newChannel.id}> and configured it for automatic logging!`
+      );
+
+      // Store the channel ID in environment variable or config
+      // Note: In a real implementation, you'd want to persist this to a config file
+      process.env.LOG_CHANNEL_ID = newChannel.id;
     } catch (err) {
       console.error("Error creating log channel:", err);
       message.reply("❌ There was an error while creating the log channel.");
     }
   },
 };
-
 
 // Command for viewing invite help
 export const inviteHelpConfig = {
@@ -405,3 +508,248 @@ export const inviteHelpConfig = {
     message.reply({ embeds: [helpEmbed] });
   },
 };
+
+// Initialize invite tracking system
+export async function setupInviteTracker(client) {
+  // When bot is ready, cache all guild invites
+  client.on(Events.ClientReady, async () => {
+    try {
+      // For each guild the bot is in, cache its invites
+      for (const guild of client.guilds.cache.values()) {
+        // Fetch all guild invites
+        const invites = await guild.invites.fetch();
+        // Store the invites for each guild
+        guildInvites.set(
+          guild.id,
+          new Collection(invites.map((invite) => [invite.code, invite]))
+        );
+      }
+      console.log("Invite tracking system initialized!");
+    } catch (err) {
+      console.error("Error setting up invite tracker:", err);
+    }
+  });
+
+  // Update cache when new invites are created
+  client.on(Events.InviteCreate, async (invite) => {
+    try {
+      // Add new invite to the cache
+      const guildInviteCache =
+        guildInvites.get(invite.guild.id) || new Collection();
+      guildInviteCache.set(invite.code, invite);
+      guildInvites.set(invite.guild.id, guildInviteCache);
+    } catch (err) {
+      console.error("Error handling invite create event:", err);
+    }
+  });
+
+  // Update cache when invites are deleted
+  client.on(Events.InviteDelete, (invite) => {
+    try {
+      // Remove the invite from the cache
+      const guildInviteCache = guildInvites.get(invite.guild.id);
+      if (guildInviteCache) {
+        guildInviteCache.delete(invite.code);
+      }
+    } catch (err) {
+      console.error("Error handling invite delete event:", err);
+    }
+  });
+
+  // Track invites when new members join
+  client.on(Events.GuildMemberAdd, async (member) => {
+    try {
+      // Skip bots
+      if (member.user.bot) return;
+
+      // Get the invite data
+      const inviteData = loadInviteData();
+      if (!inviteData[member.guild.id]) {
+        inviteData[member.guild.id] = {};
+      }
+      const guildData = inviteData[member.guild.id];
+
+      // Get the cached invites
+      const cachedInvites =
+        guildInvites.get(member.guild.id) || new Collection();
+
+      // Get the current invites
+      const currentInvites = await member.guild.invites.fetch();
+
+      // Find the invite that was used
+      let usedInvite = null;
+      // Compare the current invites with the cached ones to find which one was used
+      for (const [code, invite] of currentInvites) {
+        const cachedInvite = cachedInvites.get(code);
+        if (cachedInvite && invite.uses > cachedInvite.uses) {
+          usedInvite = invite;
+          break;
+        }
+      }
+
+      // Update the cache with the new invites
+      guildInvites.set(
+        member.guild.id,
+        new Collection(currentInvites.map((invite) => [invite.code, invite]))
+      );
+
+      // Create invite log data
+      let inviterId = "unknown";
+      let inviterUsername = "Unknown";
+      let inviteCode = "unknown";
+
+      if (usedInvite && usedInvite.inviter) {
+        inviterId = usedInvite.inviter.id;
+        inviterUsername = usedInvite.inviter.username;
+        inviteCode = usedInvite.code;
+      } else if (member.guild.vanityURLCode) {
+        // Check if they used a vanity URL
+        try {
+          const vanityData = await member.guild.fetchVanityData();
+          if (vanityData) {
+            inviteCode = "vanity";
+            inviterUsername = "Vanity URL";
+          }
+        } catch (err) {
+          console.error("Error checking vanity URL:", err);
+        }
+      }
+
+      // Initialize inviter data if not exists
+      if (!guildData[inviterId]) {
+        guildData[inviterId] = {
+          inviteCount: 0,
+          invitedUsers: [],
+        };
+      }
+
+      // Update inviter data
+      guildData[inviterId].inviteCount += 1;
+
+      // Record the invited user
+      const timestamp = new Date();
+      const timestampIST = convertToIST(timestamp);
+
+      guildData[inviterId].invitedUsers.push({
+        id: member.id,
+        username: member.user.username,
+        inviteCode: inviteCode,
+        timestamp: timestamp.toISOString(),
+        timestampIST: timestampIST,
+      });
+
+      // Save the updated invite data
+      saveInviteData(inviteData);
+
+      // Find the invite-logs channel
+      const logChannel =
+        member.guild.channels.cache.find(
+          (ch) => ch.id === "1373272863355965472"
+        ) || member.guild.channels.cache.get(process.env.LOG_CHANNEL_ID);
+
+      if (!logChannel) return;
+
+      // Create and send embed to log channel based on invite type
+      let inviteEmbed;
+
+      if (inviteCode === "vanity") {
+        // Vanity URL embed
+        inviteEmbed = new EmbedBuilder()
+          .setColor("#3498DB")
+          .setTitle("New Member Joined")
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Invite Info",
+              value: "Joined using the server's vanity URL",
+              inline: false,
+            },
+            {
+              name: "Date & Time",
+              value: timestampIST,
+              inline: false,
+            }
+          )
+          .setTimestamp()
+          .setFooter({
+            text: `Member ID: ${member.id}`,
+          });
+      } else if (inviteCode === "unknown") {
+        // Unknown invite embed
+        inviteEmbed = new EmbedBuilder()
+          .setColor("#E74C3C")
+          .setTitle("New Member Joined")
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Invite Info",
+              value: "Could not determine which invite was used",
+              inline: false,
+            },
+            {
+              name: "Date & Time",
+              value: timestampIST,
+              inline: false,
+            }
+          )
+          .setTimestamp()
+          .setFooter({
+            text: `Member ID: ${member.id}`,
+          });
+      } else {
+        // Normal invite embed with full details and both avatars
+        inviteEmbed = new EmbedBuilder()
+          .setColor("#2ECC71")
+          .setTitle("New Member Joined")
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+          .setDescription(`${member.user} was invited by ${inviterUsername}`)
+          .addFields(
+            {
+              name: "Member",
+              value: `${member.user.username} (<@${member.id}>)`,
+              inline: true,
+            },
+            {
+              name: "Invited By",
+              value: `${inviterUsername} (<@${inviterId}>)`,
+              inline: true,
+            },
+            {
+              name: "Invite Code",
+              value: inviteCode,
+              inline: true,
+            },
+            {
+              name: "Joined At",
+              value: timestampIST,
+              inline: true,
+            },
+            {
+              name: "Total Invites",
+              value: `${guildData[inviterId].inviteCount}`,
+              inline: true,
+            }
+          )
+          .setTimestamp()
+          .setImage(
+            client.users.cache
+              .get(inviterId)
+              ?.displayAvatarURL({ dynamic: true })
+          )
+          .setFooter({
+            text: `Inviter ID: ${inviterId}`,
+            iconURL: client.users.cache
+              .get(inviterId)
+              ?.displayAvatarURL({ dynamic: true }),
+          });
+      }
+
+      // Send the embed to the log channel
+      await logChannel.send({ embeds: [inviteEmbed] });
+    } catch (err) {
+      console.error("Error handling member join event:", err);
+    }
+  });
+}

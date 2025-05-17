@@ -8,8 +8,7 @@ import { fileURLToPath } from "url";
 import { commands } from "./commands/commandsConfig.js";
 import { botConfig } from "./config/config.js";
 import {
-  registerSlashCommands,
-  setupInteractionHandler,
+  setupInteractionHandler
 } from "./slashCommands/SlashCommandsConfig.js";
 import { getBackgroundInfo, isAdmin, welcomeMember } from "./utils/utils.js";
 
@@ -781,4 +780,219 @@ client.on("messageCreate", async (message) => {
       message.reply({ embeds: [helpEmbed] });
       break;
   }
+  // When bot is ready, cache all guild invites
+  client.on(Events.ClientReady, async () => {
+    try {
+      console.log("Caching guild invites for tracking...");
+      for (const guild of client.guilds.cache.values()) {
+        const invites = await guild.invites.fetch();
+        guildInvitesCache.set(
+          guild.id,
+          new Collection(invites.map((invite) => [invite.code, invite]))
+        );
+      }
+      console.log("Invite tracking system initialized successfully!");
+    } catch (err) {
+      console.error("Error initializing invite tracking:", err);
+    }
+  });
+
+  // When a new invite is created, add it to our cache
+  client.on(Events.InviteCreate, async (invite) => {
+    try {
+      const invites =
+        guildInvitesCache.get(invite.guild.id) || new Collection();
+      invites.set(invite.code, invite);
+      guildInvitesCache.set(invite.guild.id, invites);
+    } catch (err) {
+      console.error("Error tracking new invite:", err);
+    }
+  });
+
+  // When an invite is deleted, remove it from our cache
+  client.on(Events.InviteDelete, (invite) => {
+    try {
+      const invites = guildInvitesCache.get(invite.guild.id);
+      if (invites) {
+        invites.delete(invite.code);
+      }
+    } catch (err) {
+      console.error("Error tracking deleted invite:", err);
+    }
+  });
+
+  // When a new member joins, find which invite they used
+  client.on(Events.GuildMemberAdd, async (member) => {
+    // Skip bots
+    if (member.user.bot) return;
+
+    try {
+      // Get the invite data from file
+      const inviteData = loadInviteData();
+      if (!inviteData[member.guild.id]) {
+        inviteData[member.guild.id] = {};
+      }
+      const guildData = inviteData[member.guild.id];
+
+      // Get cached invites for the guild
+      const cachedInvites =
+        guildInvitesCache.get(member.guild.id) || new Collection();
+
+      // Fetch current invites to compare with cached ones
+      const newInvites = await member.guild.invites.fetch();
+
+      // Find the invite that was used by comparing uses count
+      let usedInvite = null;
+      let inviter = null;
+
+      newInvites.forEach((invite) => {
+        const cachedInvite = cachedInvites.get(invite.code);
+        if (cachedInvite && cachedInvite.uses < invite.uses) {
+          usedInvite = invite;
+          inviter = invite.inviter;
+        }
+      });
+
+      // Update our cache with the new invites
+      guildInvitesCache.set(
+        member.guild.id,
+        new Collection(newInvites.map((invite) => [invite.code, invite]))
+      );
+
+      // Default values if invite can't be determined
+      let inviterId = "unknown";
+      let inviterUsername = "Unknown";
+      let inviteCode = "unknown";
+
+      // Update with actual values if we found the used invite
+      if (usedInvite && inviter) {
+        inviterId = inviter.id;
+        inviterUsername = inviter.username;
+        inviteCode = usedInvite.code;
+      } else if (member.guild.vanityURLCode) {
+        // Check if they used a vanity URL
+        try {
+          const vanityData = await member.guild.fetchVanityData();
+          if (vanityData) {
+            inviteCode = "vanity";
+            inviterUsername = "Vanity URL";
+          }
+        } catch (err) {
+          console.error("Error checking vanity URL:", err);
+        }
+      }
+
+      // Create/update inviter's data
+      if (!guildData[inviterId]) {
+        guildData[inviterId] = {
+          inviteCount: 0,
+          invitedUsers: [],
+        };
+      }
+
+      // Increment invite count
+      guildData[inviterId].inviteCount += 1;
+
+      // Add new invited user to inviter's record
+      const timestamp = new Date();
+      const timestampIST = convertToIST(timestamp);
+
+      guildData[inviterId].invitedUsers.push({
+        id: member.id,
+        username: member.user.username,
+        inviteCode: inviteCode,
+        timestamp: timestamp.toISOString(),
+        timestampIST: timestampIST,
+      });
+
+      // Save updated invite data
+      saveInviteData(inviteData);
+
+      // Find the invite-logs channel or use the configured log channel
+      const logChannel =
+        member.guild.channels.cache.get(process.env.LOG_CHANNEL_ID) ||
+        member.guild.channels.cache.find((ch) => ch.name === "invite-logs");
+
+      if (!logChannel) return; // No log channel found, silently return
+
+      // Create the embed based on invite type
+      let logEmbed;
+
+      if (inviteCode === "vanity") {
+        // Vanity URL embed
+        logEmbed = new EmbedBuilder()
+          .setColor("#3498DB")
+          .setTitle("New Member Joined")
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Invite Info",
+              value: "Joined using the server's vanity URL",
+              inline: false,
+            },
+            {
+              name: "Date & Time",
+              value: timestampIST,
+              inline: false,
+            }
+          )
+          .setTimestamp();
+      } else if (inviteCode === "unknown") {
+        // Unknown invite embed
+        logEmbed = new EmbedBuilder()
+          .setColor("#E74C3C")
+          .setTitle("New Member Joined")
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Invite Info",
+              value: "Could not determine which invite was used",
+              inline: false,
+            },
+            {
+              name: "Date & Time",
+              value: timestampIST,
+              inline: false,
+            }
+          )
+          .setTimestamp();
+      } else {
+        // Normal invite embed
+        logEmbed = new EmbedBuilder()
+          .setColor("#2ECC71")
+          .setTitle("New Member Joined")
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Member",
+              value: `${member.user.username} (<@${member.id}>)`,
+              inline: true,
+            },
+            {
+              name: "Invited By",
+              value: `${inviterUsername} (<@${inviterId}>)`,
+              inline: true,
+            },
+            { name: "Invite Code", value: inviteCode, inline: true },
+            { name: "Joined At", value: timestampIST, inline: true },
+            {
+              name: `${inviterUsername}'s Total Invites`,
+              value: `${guildData[inviterId].inviteCount}`,
+              inline: true,
+            }
+          )
+          .setTimestamp()
+          .setFooter({ text: `Member ID: ${member.id}` });
+      }
+
+      // Send the embed to the log channel
+      await logChannel.send({ embeds: [logEmbed] });
+    } catch (err) {
+      console.error("Error tracking member join:", err);
+    }
+  });
 });
+
