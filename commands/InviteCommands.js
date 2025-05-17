@@ -112,20 +112,48 @@ export const invitesConfig = {
 
 // Command to view invites for a specific user
 export const userInvitesConfig = {
-  aliases: ["myinvites", "inviter"],
+  aliases: ["myinvites", "inviter", "uit"],
   adminOnly: true,
   execute: async (message, args) => {
-    // Check if user has permission to use this command
     if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
       return message.reply("You do not have permission to use this command.");
     }
 
-    // Load invite data
     const inviteData = loadInviteData();
     const guildData = inviteData[message.guild.id] || {};
 
-    // Get the mentioned user or use the message author
-    const target = message.mentions.users.first() || message.author;
+    let target = message.mentions.users.first();
+
+    if (!target && args.length > 0) {
+      const search = args.join(" ").toLowerCase();
+
+      // Try to find user in cache by ID, username, or display name
+      const memberFromCache = message.guild.members.cache.find(
+        (m) =>
+          m.user.id === search ||
+          m.user.username.toLowerCase() === search ||
+          m.displayName.toLowerCase() === search
+      );
+
+      if (memberFromCache) {
+        target = memberFromCache.user;
+      } else {
+        // Try to fetch user from guild if not in cache
+        try {
+          const memberFromFetch = await message.guild.members.fetch(search);
+          if (memberFromFetch) {
+            target = memberFromFetch.user;
+          }
+        } catch (err) {
+          // Ignore fetch error (likely user not found)
+        }
+      }
+    }
+
+    if (!target) {
+      target = message.author;
+    }
+
     const targetData = guildData[target.id];
 
     if (!targetData || targetData.inviteCount === 0) {
@@ -141,15 +169,15 @@ export const userInvitesConfig = {
         inline: false,
       });
 
-    // Add details about the last 5 invited users
     const invitedUsers = targetData.invitedUsers.slice(-5).reverse();
 
     if (invitedUsers.length > 0) {
-      let inviteDetails = "";
-
-      for (const invite of invitedUsers) {
-        inviteDetails += `• ${invite.username} (joined: ${invite.timestampIST}) using code: ${invite.inviteCode}\n`;
-      }
+      const inviteDetails = invitedUsers
+        .map(
+          (invite) =>
+            `• ${invite.username} (joined: ${invite.timestampIST}) using code: ${invite.inviteCode}`
+        )
+        .join("\n");
 
       userEmbed.addFields({
         name: "Recent Invites",
@@ -278,7 +306,7 @@ export const allInvitesConfig = {
     message.reply({ embeds: [allInvitesEmbed] });
   },
 };
-
+ 
 // Command to create log channel for invites
 export const createLogChannelConfig = {
   aliases: ["setupinvitelogs", "createinvitelog"],
@@ -289,37 +317,43 @@ export const createLogChannelConfig = {
       return message.reply("You do not have permission to use this command.");
     }
 
-    const logChannelId = "1368535128468357142";
+    const channelName = "invite-logs";
 
-    // Check if log channel already exists
-    const existingChannel = message.guild.channels.cache.get(logChannelId);
+    // Check if a channel with this name already exists
+    const existingChannel = message.guild.channels.cache.find(
+      (ch) => ch.name === channelName
+    );
 
     if (existingChannel) {
-      return message.reply(`Log channel <#${logChannelId}> already exists.`);
+      return message.reply(`Log channel <#${existingChannel.id}> already exists.`);
     }
 
-    // Create log channel
+    // Create the log channel
     try {
       const newChannel = await message.guild.channels.create({
-        id: logChannelId,
-        name: "invite-logs",
-        type: 0, // Text channel
+        name: channelName,
+        type: 0, // 0 = GUILD_TEXT
         permissionOverwrites: [
           {
-            id: message.guild.id,
-            deny: [PermissionFlagsBits.SendMessages],
-            allow: [PermissionFlagsBits.ViewChannel],
+            id: message.guild.id, // @everyone
+            deny: [PermissionFlagsBits.SendMessages], // Prevent general users from sending messages
+          },
+          {
+            id: message.client.user.id,
+            allow: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.ViewChannel],
           },
         ],
+        reason: "Created invite log channel by admin command.",
       });
 
-      message.reply(`Created log channel <#${logChannelId}> for invite tracking.`);
+      message.reply(`✅ Successfully created invite log channel: <#${newChannel.id}>`);
     } catch (err) {
       console.error("Error creating log channel:", err);
-      message.reply("There was an error creating the log channel.");
+      message.reply("❌ There was an error while creating the log channel.");
     }
   },
 };
+
 
 // Command for viewing invite help
 export const inviteHelpConfig = {

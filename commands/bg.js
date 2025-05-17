@@ -1,3 +1,8 @@
+// Import using ES modules syntax consistently
+import path from "node:path";
+import fs from "fs"; 
+import { botConfig } from "../config/config.js";
+
 export const bgConfig = {
   aliases: ["setbackground", "background"],
   adminOnly: true,
