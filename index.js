@@ -1053,7 +1053,8 @@ async function fetchServerStatus() {
     );
 
     if (!response.ok) {
-      throw new Error(`API returned status ${response.status}`);
+      console.error(`API returned status ${response.status}`);
+      return null;
     }
 
     const data = await response.json();
@@ -1108,69 +1109,71 @@ async function sendMessageOnServerStatusChange(client, roleId, channelId) {
     console.log(`Role found: ${role.name}`);
 
     // Fetch server status
+    let serverStatus = null;
     try {
       console.log("Fetching server status...");
-      const serverStatus = await fetchServerStatus();
-      if (!serverStatus) {
-        console.error("Failed to fetch server status, aborting");
-        return;
-      }
-
-      const { current_state } = serverStatus;
-      console.log(`Current server state: ${current_state}`);
-
-      // Check if status changed
-      console.log(
-        `Comparing states: last=${lastServerState}, current=${current_state}`
-      );
-      if (lastServerState !== current_state) {
-        console.log(
-          `Server state changed from ${lastServerState} to ${current_state}. Sending notification.`
-        );
-
-        // Update stored status
-        lastServerState = current_state;
-        console.log("current_state", current_state);
-        const messageContent = `<@&${roleId}>, the server is ${
-          current_state === "running"
-            ? "**ONLINE** ✅"
-            : current_state === "stopping"
-            ? "**STOPPING** ⏳"
-            : current_state === "installing"
-            ? "**INSTALLING** ⏳"
-            : current_state === "starting"
-            ? "**STARTING** ⏳"
-            : "**OFFLINE** ❌"
-        }`;
-
-        console.log(`Preparing to send message: "${messageContent}"`);
-
-        // Send to the channel
-        try {
-          console.log(`Sending message to channel #${channel.name}`);
-          const sentMessage = await channel.send(messageContent);
-          console.log(`Message sent successfully, ID: ${sentMessage.id}`);
-        } catch (err) {
-          console.error("Could not send message in channel:", err);
-        }
-      } else {
-        console.log("Server state unchanged, no notification needed");
-      }
+      serverStatus = await fetchServerStatus();
     } catch (error) {
-      console.error("Error in sendMessageOnServerStatusChange:", error);
+      console.error("Error fetching server status:", error);
+      return;
     }
 
-    // Schedule the next check in 1.1 minutes
-    setTimeout(
-      () => sendMessageOnServerStatusChange(client, roleId, channelId),
-      1000 * 60 * 1.1
+    if (!serverStatus) {
+      console.error("Failed to fetch server status, aborting");
+      return;
+    }
+
+    const { current_state } = serverStatus;
+    console.log(`Current server state: ${current_state}`);
+
+    // Check if status changed
+    console.log(
+      `Comparing states: last=${lastServerState}, current=${current_state}`
     );
+    if (lastServerState !== current_state) {
+      console.log(
+        `Server state changed from ${lastServerState} to ${current_state}. Sending notification.`
+      );
+
+      // Update stored status
+      lastServerState = current_state;
+      console.log("current_state", current_state);
+      const messageContent = `<@&${roleId}>, the server is ${
+        current_state === "running"
+          ? "**ONLINE** ✅"
+          : current_state === "stopping"
+          ? "**STOPPING** ⏳"
+          : current_state === "installing"
+          ? "**INSTALLING** ⏳"
+          : current_state === "starting"
+          ? "**STARTING** ⏳"
+          : "**OFFLINE** ❌"
+      }`;
+
+      console.log(`Preparing to send message: "${messageContent}"`);
+
+      // Send to the channel
+      try {
+        console.log(`Sending message to channel #${channel.name}`);
+        const sentMessage = await channel.send(messageContent);
+        console.log(`Message sent successfully, ID: ${sentMessage.id}`);
+      } catch (err) {
+        console.error("Could not send message in channel:", err);
+      }
+    } else {
+      console.log("Server state unchanged, no notification needed");
+    }
   } catch (error) {
     console.error("Error in sendMessageOnServerStatusChange:", error);
   }
+  console.log("Finished processing server status check");
+  // Schedule the next check in 1.1 minutes
+  setTimeout(
+    () => sendMessageOnServerStatusChange(client, roleId, channelId),
+    1000 * 60 * 1.1
+  );
 }
 const { CHANNELID_FOR_ON_OFF_PINGER, ROLEID_FOR_PINGER } = process.env;
-console.log("first", CHANNELID_FOR_ON_OFF_PINGER);
 // Usage example:
 sendMessageOnServerStatusChange(
   client,
