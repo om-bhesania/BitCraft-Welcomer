@@ -6,8 +6,7 @@ import {
   inviteHelpConfig,
   invitesConfig,
   inviteStatsConfig,
-  testInviteConfig,
-  userInvitesConfig,
+  userInvitesConfig
 } from "./InviteCommands.js";
 import { ipConfig } from "./ip.js";
 import { remindConfig, stopConfig } from "./reminer.js";
