@@ -29,5 +29,5 @@ export const commands = {
   allinvites: allInvitesConfig,
   createlogchannel: createLogChannelConfig,
   invitehelp: inviteHelpConfig,
-  testInvite: testInviteConfig,
+  // testInvite: testInviteConfig,
 };
