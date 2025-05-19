@@ -7,9 +7,7 @@ import path, { dirname } from "path";
 import { fileURLToPath } from "url";
 import { commands } from "./commands/commandsConfig.js";
 import { botConfig } from "./config/config.js";
-import {
-  setupInteractionHandler
-} from "./slashCommands/SlashCommandsConfig.js";
+import { setupInteractionHandler } from "./slashCommands/SlashCommandsConfig.js";
 import { getBackgroundInfo, isAdmin, welcomeMember } from "./utils/utils.js";
 
 // Load environment variables
@@ -37,6 +35,13 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildInvites,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMessageTyping,
+    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildWebhooks,
+    GatewayIntentBits.GuildScheduledEvents,
+    GatewayIntentBits.GuildIntegrations,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -152,7 +157,6 @@ app.listen(PORT, () => {
   console.log(`Web server is running on port ${PORT}`);
 });
 
-
 // =================Invite Logger=================
 // Store for invite tracking
 const invitesCache = new Map();
@@ -206,7 +210,12 @@ client.on("ready", async () => {
       const guildInvites = await guild.invites.fetch();
       invitesCache.set(
         guild.id,
-        new Map(guildInvites.map((invite) => [invite.code, { uses: invite.uses, inviter: invite.inviter?.id }]))
+        new Map(
+          guildInvites.map((invite) => [
+            invite.code,
+            { uses: invite.uses, inviter: invite.inviter?.id },
+          ])
+        )
       );
       console.log(
         `Cached ${guildInvites.size} invites for guild ${guild.name}`
@@ -223,7 +232,12 @@ client.on("guildCreate", async (guild) => {
     const guildInvites = await guild.invites.fetch();
     invitesCache.set(
       guild.id,
-      new Map(guildInvites.map((invite) => [invite.code, { uses: invite.uses, inviter: invite.inviter.id }]))
+      new Map(
+        guildInvites.map((invite) => [
+          invite.code,
+          { uses: invite.uses, inviter: invite.inviter.id },
+        ])
+      )
     );
     console.log(
       `Cached ${guildInvites.size} invites for new guild ${guild.name}`
@@ -236,9 +250,9 @@ client.on("guildCreate", async (guild) => {
 // When a new invite is created
 client.on("inviteCreate", (invite) => {
   const guildInvites = invitesCache.get(invite.guild.id) || new Map();
-  guildInvites.set(invite.code, { 
-    uses: invite.uses, 
-    inviter: invite.inviter ? invite.inviter.id : null 
+  guildInvites.set(invite.code, {
+    uses: invite.uses,
+    inviter: invite.inviter ? invite.inviter.id : null,
   });
   invitesCache.set(invite.guild.id, guildInvites);
   console.log(
@@ -271,24 +285,29 @@ client.on("guildMemberAdd", async (member) => {
     for (const invite of newInvites.values()) {
       // Get the cached invite data
       const cachedInviteData = cachedInvitesSnapshot.get(invite.code);
-      
+
       // Skip if we don't have cached data for this invite
       if (!cachedInviteData) continue;
-      
+
       // If this invite has one more use than before, it's the one that was used
       if (invite.uses > cachedInviteData.uses) {
         usedInvite = invite;
-        
+
         try {
           // Try to get the inviter from the cached data first, then from the invite itself
-          const inviterId = cachedInviteData.inviter || (invite.inviter ? invite.inviter.id : null);
+          const inviterId =
+            cachedInviteData.inviter ||
+            (invite.inviter ? invite.inviter.id : null);
           if (inviterId) {
             inviter = await client.users.fetch(inviterId);
           }
         } catch (err) {
-          console.error(`Error fetching inviter for invite ${invite.code}:`, err);
+          console.error(
+            `Error fetching inviter for invite ${invite.code}:`,
+            err
+          );
         }
-        
+
         break;
       }
     }
@@ -297,8 +316,9 @@ client.on("guildMemberAdd", async (member) => {
     if (!usedInvite) {
       for (const invite of newInvites.values()) {
         // If this invite doesn't exist in our cache or is a vanity URL, skip
-        if (invite.code === 'vanity' || cachedInvitesSnapshot.has(invite.code)) continue;
-        
+        if (invite.code === "vanity" || cachedInvitesSnapshot.has(invite.code))
+          continue;
+
         usedInvite = invite;
         inviter = invite.inviter;
         break;
@@ -311,22 +331,30 @@ client.on("guildMemberAdd", async (member) => {
         const vanityData = await guild.fetchVanityData();
         if (vanityData) {
           usedInvite = {
-            code: 'vanity',
-            uses: vanityData.uses
+            code: "vanity",
+            uses: vanityData.uses,
           };
         }
       } catch (err) {
-        console.error(`Error fetching vanity URL data for guild ${guild.name}:`, err);
+        console.error(
+          `Error fetching vanity URL data for guild ${guild.name}:`,
+          err
+        );
       }
     }
 
     // Update the cache with the new invite counts
     invitesCache.set(
       guild.id,
-      new Map(newInvites.map((invite) => [invite.code, { 
-        uses: invite.uses, 
-        inviter: invite.inviter ? invite.inviter.id : null 
-      }]))
+      new Map(
+        newInvites.map((invite) => [
+          invite.code,
+          {
+            uses: invite.uses,
+            inviter: invite.inviter ? invite.inviter.id : null,
+          },
+        ])
+      )
     );
 
     // Find the log channel
@@ -392,10 +420,12 @@ client.on("guildMemberAdd", async (member) => {
 
         logChannel.send({ embeds: [embed] });
       }
-    } else if (usedInvite && usedInvite.code === 'vanity') {
+    } else if (usedInvite && usedInvite.code === "vanity") {
       // If the user joined using the vanity URL
-      console.log(`${member.user.username} joined using the server's vanity URL`);
-      
+      console.log(
+        `${member.user.username} joined using the server's vanity URL`
+      );
+
       if (logChannel) {
         const embed = new EmbedBuilder()
           .setColor("#3498DB")
@@ -425,7 +455,9 @@ client.on("guildMemberAdd", async (member) => {
 
       // Add to unknown invites tracking
       const unknownInviterId = "unknown";
-      inviteData[guild.id][unknownInviterId] = inviteData[guild.id][unknownInviterId] || {
+      inviteData[guild.id][unknownInviterId] = inviteData[guild.id][
+        unknownInviterId
+      ] || {
         inviteCount: 0,
         invitedUsers: [],
       };
@@ -996,3 +1028,242 @@ client.on("messageCreate", async (message) => {
   });
 });
 
+// =================Server Status Fetcher=================
+
+async function fetchServerStatus() {
+  const { BASE_URL, SERVER_ID, API_KEY } = process.env;
+  if (!BASE_URL || !SERVER_ID || !API_KEY) {
+    console.error("Missing required environment variable(s).");
+    return null;
+  }
+
+  try {
+    console.log(
+      `Fetching status from ${BASE_URL}/api/client/servers/${SERVER_ID}/resources`
+    );
+    const response = await fetch(
+      `${BASE_URL}/api/client/servers/${SERVER_ID}/resources`,
+      {
+        headers: {
+          Authorization: `Bearer ${API_KEY}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`API returned status ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log(
+      `Server status received: current_state=${data.attributes.current_state}`
+    );
+    return data.attributes;
+  } catch (error) {
+    console.error("Error fetching server status:", error.message);
+    return null;
+  }
+}
+
+// Initialize the static property outside the function
+let lastServerState = null;
+
+async function sendMessageOnServerStatusChange(client, roleId, channelId) {
+  try {
+    console.log("Starting sendMessageOnServerStatusChange function");
+    console.log(`Parameters: roleId=${roleId}, channelId=${channelId}`);
+
+    // First, fetch the channel using the ID
+    console.log(`Fetching channel with ID ${channelId}`);
+    const channel = await client.channels.fetch(channelId);
+    if (!channel) {
+      console.error(`Could not find channel with ID ${channelId}`);
+      return;
+    }
+
+    if (!channel.isTextBased()) {
+      console.error(`Channel ${channelId} is not a text channel`);
+      return;
+    }
+
+    console.log(`Successfully found channel: #${channel.name}`);
+
+    // Get the guild from the channel
+    const guild = channel.guild;
+    if (!guild) {
+      console.error(`Channel ${channelId} is not in a guild`);
+      return;
+    }
+    console.log(`Channel is in guild: ${guild.name}`);
+
+    // Verify the role exists
+    console.log(`Checking if role ${roleId} exists`);
+    const role = await guild.roles.fetch(roleId);
+    if (!role) {
+      console.error(`Role with ID ${roleId} not found in guild ${guild.name}`);
+      return;
+    }
+    console.log(`Role found: ${role.name}`);
+
+    // Fetch server status
+    try {
+      console.log("Fetching server status...");
+      const serverStatus = await fetchServerStatus();
+      if (!serverStatus) {
+        console.error("Failed to fetch server status, aborting");
+        return;
+      }
+
+      const { current_state } = serverStatus;
+      console.log(`Current server state: ${current_state}`);
+
+      // Check if status changed
+      console.log(
+        `Comparing states: last=${lastServerState}, current=${current_state}`
+      );
+      if (lastServerState !== current_state) {
+        console.log(
+          `Server state changed from ${lastServerState} to ${current_state}. Sending notification.`
+        );
+
+        // Update stored status
+        lastServerState = current_state;
+        console.log("current_state", current_state);
+        const messageContent = `<@&${roleId}>, the server is ${
+          current_state === "running"
+            ? "**ONLINE** ✅"
+            : current_state === "stopping"
+            ? "**STOPPING** ⏳"
+            : current_state === "installing"
+            ? "**INSTALLING** ⏳"
+            : current_state === "starting"
+            ? "**STARTING** ⏳"
+            : "**OFFLINE** ❌"
+        }`;
+
+        console.log(`Preparing to send message: "${messageContent}"`);
+
+        // Send to the channel
+        try {
+          console.log(`Sending message to channel #${channel.name}`);
+          const sentMessage = await channel.send(messageContent);
+          console.log(`Message sent successfully, ID: ${sentMessage.id}`);
+        } catch (err) {
+          console.error("Could not send message in channel:", err);
+        }
+      } else {
+        console.log("Server state unchanged, no notification needed");
+      }
+    } catch (error) {
+      console.error("Error in sendMessageOnServerStatusChange:", error);
+    }
+
+    // Schedule the next check in 1.1 minutes
+    setTimeout(
+      () => sendMessageOnServerStatusChange(client, roleId, channelId),
+      1000 * 60 * 1.1
+    );
+  } catch (error) {
+    console.error("Error in sendMessageOnServerStatusChange:", error);
+  }
+}
+const { CHANNELID_FOR_ON_OFF_PINGER, ROLEID_FOR_PINGER } = process.env;
+console.log("first", CHANNELID_FOR_ON_OFF_PINGER);
+// Usage example:
+sendMessageOnServerStatusChange(
+  client,
+  ROLEID_FOR_PINGER, // Role ID
+  CHANNELID_FOR_ON_OFF_PINGER // Channel ID
+);
+
+// =================Pterodactyl API=================
+
+// const { API_KEY } = process.env;
+// const PTERO_CLIENT_API_HEADERS = {
+//   Authorization: `Bearer ${API_KEY}`,
+//   "Content-Type": "application/json",
+//   Accept: "application/json",
+// };
+// async function getServerStatus(serverId) {
+//   const { BASE_URL } = process.env;
+//   try {
+//     const response = await fetch(`${BASE_URL}/api/client/servers/${serverId}`, {
+//       headers: {
+//         Authorization: `Bearer ${API_KEY}`,
+//         Accept: "application/json",
+//         "Content-Type": "application/json",
+//       },
+//     });
+
+//     console.log(`${BASE_URL}/api/client/servers/${serverId}/resources`);
+//     console.log("response", response.body);
+//     // const serverDetails = serverResponse.data;
+//     // console.log("serverDetails", serverDetails);
+//     // const resources = resourcesResponse.data.attributes;
+//     // console.log('resources', resources);
+
+//     // const isOnline =
+//     //   resources.resources.cpu_absolute !== null ||
+//     //   resources.current_state === "running";
+
+//     // return {
+//     //   name: serverDetails.name,
+//     //   identifier: serverDetails.identifier,
+//     //   status: isOnline ? "Online" : "Offline",
+//     //   cpu: {
+//     //     usage:
+//     //       resources.resources.cpu_absolute !== null
+//     //         ? `${resources.resources.cpu_absolute.toFixed(2)}%`
+//     //         : "N/A",
+//     //   },
+//     //   memory: {
+//     //     current: `${(resources.resources.memory_bytes / 1024 / 1024).toFixed(
+//     //       2
+//     //     )} MB`,
+//     //     limit: resources.resources.memory_limit_bytes
+//     //       ? `${(resources.resources.memory_limit_bytes / 1024 / 1024).toFixed(
+//     //           2
+//     //         )} MB`
+//     //       : "Unlimited",
+//     //   },
+//     //   disk: {
+//     //     current: `${(resources.resources.disk_bytes / 1024 / 1024).toFixed(
+//     //       2
+//     //     )} MB`,
+//     //     limit: resources.resources.disk_limit_bytes
+//     //       ? `${(resources.resources.disk_limit_bytes / 1024 / 1024).toFixed(
+//     //           2
+//     //         )} MB`
+//     //       : "Unlimited",
+//     //   },
+//     //   network: {
+//     //     incoming: `${(
+//     //       resources.resources.network_rx_bytes /
+//     //       1024 /
+//     //       1024
+//     //     ).toFixed(2)} MB`,
+//     //     outgoing: `${(
+//     //       resources.resources.network_tx_bytes /
+//     //       1024 /
+//     //       1024
+//     //     ).toFixed(2)} MB`,
+//     //   },
+//     //   uptime: resources.resources.uptime
+//     //     ? `${Math.floor(resources.resources.uptime / 1000)} seconds`
+//     //     : "N/A",
+//     // };
+//   } catch (error) {
+//     console.error(
+//       "Error fetching server status:",
+//       error.response?.data || error.message
+//     );
+//     return {
+//       error: true,
+//       message: error.response?.data?.errors?.[0]?.detail || error.message,
+//     };
+//   }
+// }
+
+// getServerStatus("85b3fd31-75be-46b7-a9c6-4f26d0202b92");
