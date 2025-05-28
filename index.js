@@ -713,11 +713,11 @@ class BitCraftBot {
 
       // Start server status monitoring
 
-      // this.statusMonitor.monitorServerStatus(
-      //   this.client,
-      //   ROLEID_FOR_PINGER,
-      //   CHANNELID_FOR_ON_OFF_PINGER
-      // );
+      this.statusMonitor.monitorServerStatus(
+        this.client,
+        ROLEID_FOR_PINGER,
+        CHANNELID_FOR_ON_OFF_PINGER
+      );
 
       console.log("BitCraft Official Bot is online and ready!");
     });
