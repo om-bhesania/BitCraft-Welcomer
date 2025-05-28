@@ -1,7 +1,7 @@
 import { EmbedBuilder } from "discord.js";
 
 export const rulesConfig = {
-  aliases: ["rule", "guidelines" ,"r"],
+  aliases: ["rule", "guidelines", "r", "rules"],
   adminOnly: false,
   execute: async (message, args) => {
     // General Rules Embed

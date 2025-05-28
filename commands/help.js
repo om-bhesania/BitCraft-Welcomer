@@ -3,7 +3,8 @@ import CommandsList from "./CommandsList.js";
 
 export const helpConfig = {
   name: "help",
-  description: "List all available commands and their usage.",
+  adminOnly: false,
+  aliases: ["help", "h"],
   execute(message) {
     const categories = {};
 

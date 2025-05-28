@@ -1,34 +1,45 @@
 import { EmbedBuilder } from "discord.js";
 
 export const ipConfig = {
-  aliases: ["server", "connect"],
+  name: "ip",
+  description: "Get the server IP and port for BitCraft.",
+  options: [],
+  category: "Information",
+  aliases: ["server", "connect", "ip"],
   adminOnly: false,
-  execute: async (message, args) => {
-    const ipEmbed = new EmbedBuilder()
-      .setColor("#F9A825")
-      .setTitle("🎮 BitCraft Server Connection Info")
-      .setDescription(
-        "Connect to our Minecraft server using the following details:"
-      )
-      .addFields(
-        {
-          name: "🌐 Server Address (JAVA)",
-          value: "```play.bitcraftnetwork.fun```",
-          inline: true,
-        },
-        {
-          name: "🛠️ Port (BEDROCK)",
-          value: "```25571```",
-        },
-        {
-          name: "🌐 Server Address (BEDROCK)",
-          value: "```play.bitcraftnetwork.fun:25582```",
-        }
-      )
-      .setFooter({
-        text: "Simply copy the server address and paste it in your Minecraft client!",
-      });
+  execute: async (interaction) => {
+    const { SERVER_IP, SERVER_PORT, SERVER_BEDROCK_PORT } = process.env;
 
-    await message.reply({ embeds: [ipEmbed] });
+    const ipEmbed = new EmbedBuilder()
+      .setColor("#00D4AA") // Modern teal color
+      .setTitle("🌐 BitCraft Server Connection")
+      .setDescription(
+        "**Ready to join the adventure? Connect using the details below!**"
+      )
+      .addFields({ 
+        name: "Server IP & Ports",
+        value: `\n\n**☕ Java Edition:** \`\`\`${SERVER_IP}:${SERVER_PORT}\`\`\` \n**📱 Bedrock Edition:** \`\`\`${SERVER_IP}:${SERVER_BEDROCK_PORT}\`\`\``,
+        inline: false,
+      })
+      .setFooter({
+        text: "BitCraft Official • Server Status: Online",
+        iconURL: "https://i.imgur.com/OMqZfgz.png",
+      })
+      .setThumbnail("https://i.imgur.com/OMqZfgz.png")
+      .setTimestamp();
+
+    // Send ephemeral reply - only visible to command user with dismiss option
+    try {
+      await interaction.reply({
+        embeds: [ipEmbed],
+        ephemeral: true,
+      });
+    } catch (error) {
+      console.error("Error sending ephemeral reply:", error);
+      // Fallback to regular reply if ephemeral fails
+      await interaction.reply({
+        embeds: [ipEmbed],
+      });
+    }
   },
 };
