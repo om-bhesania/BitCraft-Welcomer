@@ -545,7 +545,6 @@ class ServerStatusMonitor {
           },
         }
       );
-
       if (!response.ok) {
         console.error(`API returned status ${response.status}`);
         return null;
@@ -705,7 +704,8 @@ class BitCraftBot {
         await slashManager.handleInteraction(interaction);
       });
 
-      const { CHANNELID_FOR_ON_OFF_PINGER, ROLEID_FOR_PINGER,GUILD_ID } = process.env;
+      const { CHANNELID_FOR_ON_OFF_PINGER, ROLEID_FOR_PINGER, GUILD_ID } =
+        process.env;
       this.client.on("ready", async () => {
         // Set Slash Commands
         await slashManager.deployCommands(this.client.user.id, GUILD_ID);

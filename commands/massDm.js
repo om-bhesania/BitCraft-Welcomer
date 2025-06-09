@@ -121,7 +121,7 @@ const massDmConfig = {
         description: `Are you sure you want to send this ${
           isEmbedMode ? "embed " : ""
         }message to **${
-          guild.memberCount
+          guild.members.cache.filter(member => !member.user.bot).size
         }** members?\n\n**Message:**\n${dmMessage}\n\n💡 **Tip:** Use \`!massdm test ${tipText}@user <message>\` to test first!`,
         footer: { text: "Click Confirm or Cancel below (30s timeout)" },
       };
@@ -255,6 +255,11 @@ const massDmConfig = {
       for (const [memberId, member] of targetMembers) {
         try {
           // Check if user has DMs enabled
+          if (member.user.bot) {
+            failCount++;
+            errors.push(`${member.user.tag}: Is a bot`);
+            continue;
+          }
           const dmChannel = await member.createDM();
           if (!dmChannel) {
             failCount++;
