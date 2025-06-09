@@ -6,12 +6,13 @@ import {
   inviteHelpConfig,
   invitesConfig,
   inviteStatsConfig,
-  userInvitesConfig
+  userInvitesConfig,
 } from "./InviteCommands.js";
-import { ipConfig } from "./ip.js";
+import { ipConfig } from "./ip.js"; 
+import massDmConfig from "./massDm.js";
 import { remindConfig, stopConfig } from "./reminer.js";
 import { rulesConfig } from "./rules.js";
-import { testConfig } from "./test.js";
+import { testConfig } from "./test.js"; 
 // Command handler system - centralized for easier additions
 export const commands = {
   test: testConfig,
@@ -28,5 +29,6 @@ export const commands = {
   allinvites: allInvitesConfig,
   createlogchannel: createLogChannelConfig,
   invitehelp: inviteHelpConfig,
+  massDm: massDmConfig,
   // testInvite: testInviteConfig,
 };

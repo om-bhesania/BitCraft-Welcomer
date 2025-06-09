@@ -71,4 +71,21 @@ export default [
     description: "Stop the current reminder.",
     category: "Utility",
   },
+  // Direct Messages
+  {
+    name: "massdm",
+    description: "Send a direct message to all server members.",
+    category: "Direct Messages",
+  },
+  {
+    name: "dm",
+    description: "Send a direct message to a specific user.",
+    category: "Direct Messages",
+  },
+  {
+    name: "mdm",
+    description:
+      "Send a direct message to all server members (alias for massdm).",
+    category: "Direct Messages",
+  },
 ];
