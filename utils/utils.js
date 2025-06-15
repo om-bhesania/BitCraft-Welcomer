@@ -1,7 +1,10 @@
 // BitCraft Official Bot - ES Modules version with enhanced command system
 import { createCanvas, loadImage } from "canvas";
 import {
+  ActionRowBuilder,
   AttachmentBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   Client,
   EmbedBuilder,
   GatewayIntentBits,
@@ -233,3 +236,20 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.on("guildMemberAdd", async (member) => {
   await welcomeMember(member);
 });
+
+export const sendApplicationEmbed = async (channel) => {
+  const embed = new EmbedBuilder()
+    .setTitle("📋 Staff Application")
+    .setDescription("Click the button below to apply for staff.")
+    .setColor("Green");
+
+  const button = new ButtonBuilder()
+    .setCustomId("start_staff_application")
+    .setLabel("Apply Now")
+    .setStyle(ButtonStyle.Primary);
+
+  const row = new ActionRowBuilder().addComponents(button);
+
+  await channel.send({ embeds: [embed], components: [row] });
+};
+ 

@@ -1,27 +1,25 @@
 // BitCraft Official Bot - Refactored and Modularized
 import {
   Client,
+  Collection,
   EmbedBuilder,
   GatewayIntentBits,
-  Collection,
-  Events,
-  PermissionFlagsBits,
+  PermissionFlagsBits
 } from "discord.js";
 import { config as dotenvConfig } from "dotenv";
 import express from "express";
 import fs from "fs";
+import fetch from "node-fetch";
 import path, { dirname } from "path";
 import { fileURLToPath } from "url";
-import fetch from "node-fetch";
 
 // Import modules
 import { commands } from "./commands/commandsConfig.js";
-import { botConfig } from "./config/config.js";
-import { getBackgroundInfo, isAdmin, welcomeMember } from "./utils/utils.js";
-import { SlashCommandsManager } from "./slashCommands/SlashCommandsManager.js";
-import { ipConfig } from "./commands/ip.js";
 import { helpConfig } from "./commands/help.js";
-import { rulesConfig } from "./commands/rules.js";
+import { ipConfig } from "./commands/ip.js";
+import { botConfig } from "./config/config.js";
+import { SlashCommandsManager } from "./slashCommands/SlashCommandsManager.js";
+import { getBackgroundInfo, isAdmin, welcomeMember } from "./utils/utils.js";
 
 // Load environment variables
 dotenvConfig();
