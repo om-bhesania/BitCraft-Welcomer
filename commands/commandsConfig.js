@@ -34,7 +34,7 @@ export const commands = {
   massDm: massDmConfig,
   // staffApplication: staffApplicationConfig,
   // sendPanel: sendPanel,
-  prune: pruneCommand,
+  // prune: pruneCommand,
 
   // testInvite: testInviteConfig,
 };
