@@ -17,6 +17,11 @@ import { botConfig } from "../config/config.js";
 // Function to create welcome card
 export async function createWelcomeImage(member, memberCount) {
   try {
+    // Validate input
+    if (!member || !member.user) {
+      throw new Error("Invalid member object provided to createWelcomeImage");
+    }
+
     // Canvas setup
     const canvas = createCanvas(800, 250);
     const ctx = canvas.getContext("2d");
@@ -24,34 +29,8 @@ export async function createWelcomeImage(member, memberCount) {
     // Get background info
     const bgInfo = getBackgroundInfo();
 
-    // Try to load background image
-    try {
-      if (bgInfo.exists) {
-        console.log(`Loading background ${bgInfo.type} from: ${bgInfo.path}`);
-        const background = await loadImage(bgInfo.path);
-        // Draw background image
-        ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
-
-        // Add semi-transparent overlay for better text visibility
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      } else {
-        // Set default background color
-        ctx.fillStyle = "#2C2F33";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // Add pattern for visual interest
-        ctx.fillStyle = "#1f1f1f";
-        for (let i = 0; i < 20; i++) {
-          for (let j = 0; j < 20; j++) {
-            if ((i + j) % 2 === 0) {
-              ctx.fillRect(i * 40, j * 40, 40, 40);
-            }
-          }
-        }
-      }
-    } catch (imgError) {
-      console.error("Error loading background:", imgError);
+    // Set default background
+    const setDefaultBackground = () => {
       // Set default background color
       ctx.fillStyle = "#2C2F33";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -65,6 +44,25 @@ export async function createWelcomeImage(member, memberCount) {
           }
         }
       }
+    };
+
+    // Try to load background image
+    try {
+      if (bgInfo.exists) {
+        console.log(`Loading background ${bgInfo.type} from: ${bgInfo.path}`);
+        const background = await loadImage(bgInfo.path);
+        // Draw background image
+        ctx.drawImage(background, 0, 0, canvas.width, canvas.height);
+
+        // Add semi-transparent overlay for better text visibility
+        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      } else {
+        setDefaultBackground();
+      }
+    } catch (imgError) {
+      console.error("Error loading background:", imgError);
+      setDefaultBackground();
     }
 
     // Save context state
@@ -76,14 +74,30 @@ export async function createWelcomeImage(member, memberCount) {
     ctx.closePath();
     ctx.clip();
 
-    // Load and draw avatar
-    const avatar = await loadImage(
-      member.displayAvatarURL({ extension: "png", size: 256 })
-    );
-    ctx.drawImage(avatar, 45, 45, 160, 160);
+    // Load and draw avatar with error handling
+    try {
+      // Get avatar URL safely
+      const avatarURL = member.displayAvatarURL({ extension: "png", size: 256 }) || 
+                       member.user.displayAvatarURL({ extension: "png", size: 256 });
+      
+      if (!avatarURL) {
+        throw new Error("Could not get avatar URL");
+      }
+      
+      const avatar = await loadImage(avatarURL);
+      ctx.drawImage(avatar, 45, 45, 160, 160);
+    } catch (avatarError) {
+      console.error("Error loading avatar:", avatarError);
+      // Draw a placeholder circle if avatar fails to load
+      ctx.fillStyle = "#F9A825";
+      ctx.fillRect(45, 45, 160, 160);
+    }
 
     // Reset the clipping
     ctx.restore();
+
+    // Get display name safely
+    const displayName = member.user.displayName || member.user.username || member.user.tag || "New Member";
 
     // Add text with INCREASED SIZE
     ctx.font = "bold 34px Arial"; // Increased from 28px
@@ -93,7 +107,7 @@ export async function createWelcomeImage(member, memberCount) {
 
     ctx.font = "bold 28px Arial"; // Increased from 22px
     ctx.fillStyle = "#F9A825";
-    ctx.fillText(`${member.user.displayName}`, 450, 140);
+    ctx.fillText(`${displayName}`, 450, 140);
 
     ctx.font = "24px Arial"; // Increased from 18px
     ctx.fillStyle = "#FFFFFF";
@@ -137,9 +151,15 @@ export const welcomeLines = [
   "New member unlocked! Achievement: Joining the best community ever!",
 ];
 
-export // Function to welcome a member
-async function welcomeMember(member) {
+export async function welcomeMember(member) {
   try {
+    // Check if member is valid
+    if (!member || !member.guild) {
+      console.error("Invalid member object provided to welcomeMember function");
+      return;
+    }
+
+    // Get welcome channel
     const welcomeChannel = member.guild.channels.cache.get(
       botConfig.welcomeChannelId
     );
@@ -151,6 +171,12 @@ async function welcomeMember(member) {
       return;
     }
 
+    // Check if the channel is text-based
+    if (!welcomeChannel.isTextBased()) {
+      console.error("Welcome channel is not text-based");
+      return;
+    }
+
     // Get random welcome line
     const welcomeLine =
       welcomeLines[Math.floor(Math.random() * welcomeLines.length)];
@@ -158,29 +184,48 @@ async function welcomeMember(member) {
     // Get member count
     const memberCount = member.guild.memberCount;
 
-    // Create welcome image
-    const welcomeImage = await createWelcomeImage(member, memberCount);
-    const attachment = new AttachmentBuilder(welcomeImage, {
-      name: "welcome-image.png",
-    });
-    const message = await welcomeChannel.send(
-      `Welcome to the server, <@${member.id}>! `
-    );
+    try {
+      // Create welcome image
+      const welcomeImage = await createWelcomeImage(member, memberCount);
+      const attachment = new AttachmentBuilder(welcomeImage, {
+        name: "welcome-image.png",
+      });
 
-    // Create embed
-    const embed = new EmbedBuilder()
-      .setColor("#F9A825")
-      .setTitle(`Welcome to BitCraft Network!`)
-      .setDescription(
-        `${welcomeLine}\n\nHey <@${member.id}>, you are the **${memberCount}th** member!`
-      )
-      .setImage("attachment://welcome-image.png");
+      // Send initial welcome message
+      await welcomeChannel.send(
+        `Welcome to the server, <@${member.id}>! `
+      );
 
-    // Send welcome message with embed
-    const sentMessage = await welcomeChannel.send({
-      embeds: [embed],
-      files: [attachment],
-    });
+      // Create embed
+      const embed = new EmbedBuilder()
+        .setColor("#F9A825")
+        .setTitle(`Welcome to BitCraft Network!`)
+        .setDescription(
+          `${welcomeLine}\n\nHey <@${member.id}>, you are the **${memberCount}th** member!`
+        )
+        .setImage("attachment://welcome-image.png");
+
+      // Send welcome message with embed
+      await welcomeChannel.send({
+        embeds: [embed],
+        files: [attachment],
+      });
+
+      console.log(`Sent welcome message for ${member.user.tag}`);
+    } catch (imageError) {
+      console.error("Error creating welcome image:", imageError);
+      
+      // Send a simple welcome message if image creation fails
+      await welcomeChannel.send({
+        content: `Welcome to BitCraft Network, <@${member.id}>! You are our ${memberCount}th member!`,
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#F9A825")
+            .setTitle(`Welcome to BitCraft Network!`)
+            .setDescription(`${welcomeLine}\n\nHey <@${member.id}>, you are the **${memberCount}th** member!`)
+        ]
+      });
+    }
 
     // Assign role to new member - with error handling and permissions check
     try {

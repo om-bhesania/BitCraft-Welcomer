@@ -261,62 +261,66 @@ class InviteTracker {
 
   // Handle member join and track invite
   async handleMemberJoin(member) {
-    if (member.user.bot) return;
+    try {
+      if (member.user.bot) return;
 
-    const { guild } = member;
-    const { usedInvite, inviter } = await this.findUsedInvite(member);
-    const inviteData = this.loadInviteData();
-    const timestamp = new Date();
-    const timestampIST = this.convertToIST(timestamp);
+      const { guild } = member;
+      const { usedInvite, inviter } = await this.findUsedInvite(member);
+      const inviteData = this.loadInviteData();
+      const timestamp = new Date();
+      const timestampIST = this.convertToIST(timestamp);
 
-    // Initialize guild data
-    inviteData[guild.id] = inviteData[guild.id] || {};
+      // Initialize guild data
+      inviteData[guild.id] = inviteData[guild.id] || {};
 
-    let inviterId = "unknown";
-    let inviterUsername = "Unknown";
-    let inviteCode = "unknown";
+      let inviterId = "unknown";
+      let inviterUsername = "Unknown";
+      let inviteCode = "unknown";
 
-    if (usedInvite && inviter) {
-      inviterId = inviter.id;
-      inviterUsername = inviter.username;
-      inviteCode = usedInvite.code;
-    } else if (usedInvite?.code === "vanity") {
-      inviteCode = "vanity";
-      inviterUsername = "Vanity URL";
+      if (usedInvite && inviter) {
+        inviterId = inviter.id;
+        inviterUsername = inviter.username || inviter.tag || "Unknown User";
+        inviteCode = usedInvite.code;
+      } else if (usedInvite?.code === "vanity") {
+        inviteCode = "vanity";
+        inviterUsername = "Vanity URL";
+      }
+
+      // Update invite data
+      inviteData[guild.id][inviterId] = inviteData[guild.id][inviterId] || {
+        inviteCount: 0,
+        invitedUsers: [],
+      };
+
+      const inviteInfo = {
+        userId: member.user.id,
+        username: member.user.username || member.user.tag || "Unknown User",
+        inviteCode: inviteCode,
+        timestamp: timestamp.toISOString(),
+        timestampIST: timestampIST,
+      };
+
+      inviteData[guild.id][inviterId].inviteCount++;
+      inviteData[guild.id][inviterId].invitedUsers.push(inviteInfo);
+
+      this.saveInviteData(inviteData);
+
+      // Send log message
+      await this.sendJoinLog(
+        member,
+        inviterId,
+        inviterUsername,
+        inviteCode,
+        timestampIST,
+        inviteData[guild.id][inviterId].inviteCount
+      );
+
+      console.log(
+        `${member.user.username} joined using invite ${inviteCode} from ${inviterUsername}`
+      );
+    } catch (error) {
+      console.error("Error in handleMemberJoin:", error);
     }
-
-    // Update invite data
-    inviteData[guild.id][inviterId] = inviteData[guild.id][inviterId] || {
-      inviteCount: 0,
-      invitedUsers: [],
-    };
-
-    const inviteInfo = {
-      userId: member.user.id,
-      username: member.user.username,
-      inviteCode: inviteCode,
-      timestamp: timestamp.toISOString(),
-      timestampIST: timestampIST,
-    };
-
-    inviteData[guild.id][inviterId].inviteCount++;
-    inviteData[guild.id][inviterId].invitedUsers.push(inviteInfo);
-
-    this.saveInviteData(inviteData);
-
-    // Send log message
-    await this.sendJoinLog(
-      member,
-      inviterId,
-      inviterUsername,
-      inviteCode,
-      timestampIST,
-      inviteData[guild.id][inviterId].inviteCount
-    );
-
-    console.log(
-      `${member.user.username} joined using invite ${inviteCode} from ${inviterUsername}`
-    );
   }
 
   // Send join log to channel
@@ -328,75 +332,97 @@ class InviteTracker {
     timestampIST,
     totalInvites
   ) {
-    const logChannel =
-      member.guild.channels.cache.get(process.env.LOG_CHANNEL_ID) ||
-      member.guild.channels.cache.find((ch) => ch.name === "invite-logs");
-
-    if (!logChannel) return;
-
-    let embed;
-
-    if (inviteCode === "vanity") {
-      embed = new EmbedBuilder()
-        .setColor("#3498DB")
-        .setTitle("New Member Joined")
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setDescription(`${member.user} joined the server`)
-        .addFields(
-          {
-            name: "Invite Info",
-            value: "Joined using the server's vanity URL",
-            inline: false,
-          },
-          { name: "Date & Time", value: timestampIST, inline: false }
-        )
-        .setTimestamp();
-    } else if (inviteCode === "unknown") {
-      embed = new EmbedBuilder()
-        .setColor("#E74C3C")
-        .setTitle("New Member Joined")
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setDescription(`${member.user} joined the server`)
-        .addFields(
-          {
-            name: "Invite Info",
-            value: "Could not determine which invite was used",
-            inline: false,
-          },
-          { name: "Date & Time", value: timestampIST, inline: false }
-        )
-        .setTimestamp();
-    } else {
-      embed = new EmbedBuilder()
-        .setColor("#2ECC71")
-        .setTitle("New Member Joined")
-        .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-        .setDescription(`${member.user} joined the server`)
-        .addFields(
-          {
-            name: "Member",
-            value: `${member.user.username} (<@${member.id}>)`,
-            inline: true,
-          },
-          {
-            name: "Invited By",
-            value: `${inviterUsername} (<@${inviterId}>)`,
-            inline: true,
-          },
-          { name: "Invite Code", value: inviteCode, inline: true },
-          { name: "Joined At", value: timestampIST, inline: true },
-          {
-            name: `${inviterUsername}'s Total Invites`,
-            value: `${totalInvites}`,
-            inline: true,
-          }
-        )
-        .setTimestamp()
-        .setFooter({ text: `Member ID: ${member.id}` });
-    }
-
     try {
+      const logChannel =
+        member.guild.channels.cache.get(process.env.LOG_CHANNEL_ID) ||
+        member.guild.channels.cache.find((ch) => ch.name === "invite-logs");
+
+      if (!logChannel) {
+        console.log("No log channel found for invite logs");
+        return;
+      }
+
+      // Check if the channel is text-based
+      if (!logChannel.isTextBased()) {
+        console.error("Log channel is not text-based");
+        return;
+      }
+
+      let embed;
+
+      // Get avatar URL safely
+      const avatarURL = member.user.displayAvatarURL({ dynamic: true }) || null;
+
+      if (inviteCode === "vanity") {
+        embed = new EmbedBuilder()
+          .setColor("#3498DB")
+          .setTitle("New Member Joined")
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Invite Info",
+              value: "Joined using the server's vanity URL",
+              inline: false,
+            },
+            { name: "Date & Time", value: timestampIST, inline: false }
+          )
+          .setTimestamp();
+          
+        if (avatarURL) {
+          embed.setThumbnail(avatarURL);
+        }
+      } else if (inviteCode === "unknown") {
+        embed = new EmbedBuilder()
+          .setColor("#E74C3C")
+          .setTitle("New Member Joined")
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Invite Info",
+              value: "Could not determine which invite was used",
+              inline: false,
+            },
+            { name: "Date & Time", value: timestampIST, inline: false }
+          )
+          .setTimestamp();
+          
+        if (avatarURL) {
+          embed.setThumbnail(avatarURL);
+        }
+      } else {
+        embed = new EmbedBuilder()
+          .setColor("#2ECC71")
+          .setTitle("New Member Joined")
+          .setDescription(`${member.user} joined the server`)
+          .addFields(
+            {
+              name: "Member",
+              value: `${member.user.username || "Unknown"} (<@${member.id}>)`,
+              inline: true,
+            },
+            {
+              name: "Invited By",
+              value: `${inviterUsername} (<@${inviterId}>)`,
+              inline: true,
+            },
+            { name: "Invite Code", value: inviteCode, inline: true },
+            { name: "Joined At", value: timestampIST, inline: true },
+            {
+              name: `${inviterUsername}'s Total Invites`,
+              value: `${totalInvites}`,
+              inline: true,
+            }
+          )
+          .setTimestamp()
+          .setFooter({ text: `Member ID: ${member.id}` });
+          
+        if (avatarURL) {
+          embed.setThumbnail(avatarURL);
+        }
+      }
+
       await logChannel.send({ embeds: [embed] });
+      console.log(`Sent join log for ${member.user.username || "Unknown User"}`);
     } catch (err) {
       console.error("Error sending join log:", err);
     }
@@ -704,10 +730,14 @@ class BitCraftBot {
 
       const { CHANNELID_FOR_ON_OFF_PINGER, ROLEID_FOR_PINGER, GUILD_ID } =
         process.env;
-      this.client.on("ready", async () => {
-        // Set Slash Commands
+        
+      // Deploy slash commands
+      try {
         await slashManager.deployCommands(this.client.user.id, GUILD_ID);
-      });
+        console.log("Slash commands deployed successfully");
+      } catch (error) {
+        console.error("Failed to deploy slash commands:", error);
+      }
 
       // Start server status monitoring
 
@@ -770,20 +800,32 @@ class BitCraftBot {
     const commandName = args.shift().toLowerCase();
 
     // Handle invite tracking commands
-    if (await this.handleInviteCommands(message, commandName, args)) {
+    try {
+      if (await this.handleInviteCommands(message, commandName, args)) {
+        return;
+      }
+    } catch (error) {
+      console.error(`Error handling invite command ${commandName}:`, error);
+      return message.reply("There was an error processing the invite command.");
+    }
+
+    // Find the command in the commands object
+    let command = null;
+    const commandKey = Object.keys(commands).find(key => {
+      return key.toLowerCase() === commandName || 
+             (commands[key].aliases && commands[key].aliases.includes(commandName));
+    });
+    
+    if (commandKey) {
+      command = commands[commandKey];
+    }
+
+    if (!command) {
+      console.log(`Command not found: ${commandName}`);
       return;
     }
 
-    // Handle regular bot commands
-    const command = Object.values(commands).find(
-      (cmd) =>
-        commandName ===
-          Object.keys(commands).find((key) => commands[key] === cmd) ||
-        (cmd.aliases && cmd.aliases.includes(commandName))
-    );
-
-    if (!command) return;
-
+    // Check permissions
     if (command.adminOnly && !isAdmin(message.member)) {
       return message.reply(
         "You need administrator or manage server permissions to use this command!"

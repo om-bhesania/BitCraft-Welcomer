@@ -84,39 +84,51 @@ export class SlashCommandsManager {
 
   // Handle slash command interactions
   async handleInteraction(interaction) {
-    if (!interaction.isChatInputCommand()) return;
-
-    const command = this.commands.get(interaction.commandName);
-
-    if (!command) {
-      console.error(
-        `No command matching ${interaction.commandName} was found.`
-      );
-      return;
-    }
-
-    // Check permissions if specified
-    if (
-      command.adminOnly &&
-      !interaction.member.permissions.has("Administrator")
-    ) {
-      return interaction.reply({
-        content: "You need administrator permissions to use this command!",
-        ephemeral: true,
-      });
-    }
-
     try {
+      // Only handle chat input commands
+      if (!interaction.isChatInputCommand()) return;
+
+      console.log(`Received slash command: /${interaction.commandName}`);
+      const command = this.commands.get(interaction.commandName);
+
+      if (!command) {
+        console.error(
+          `No command matching ${interaction.commandName} was found.`
+        );
+        return interaction.reply({
+          content: "Sorry, that command is not available.",
+          ephemeral: true
+        });
+      }
+
+      // Check permissions if specified
+      if (command.adminOnly) {
+        // Check if the member has the required permissions
+        if (!interaction.member.permissions.has("Administrator") && 
+            !interaction.member.permissions.has("ManageGuild")) {
+          return interaction.reply({
+            content: "You need administrator permissions to use this command!",
+            ephemeral: true,
+          });
+        }
+      }
+
+      // Execute the command
       await command.execute(interaction);
+      console.log(`Successfully executed slash command: /${interaction.commandName}`);
     } catch (error) {
       console.error(`Error executing /${interaction.commandName}:`, error);
 
       const errorMessage = "There was an error while executing this command!";
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({ content: errorMessage, ephemeral: true });
-      } else {
-        await interaction.reply({ content: errorMessage, ephemeral: true });
+      try {
+        if (interaction.replied || interaction.deferred) {
+          await interaction.followUp({ content: errorMessage, ephemeral: true });
+        } else {
+          await interaction.reply({ content: errorMessage, ephemeral: true });
+        }
+      } catch (replyError) {
+        console.error("Error sending error response:", replyError);
       }
     }
   }
